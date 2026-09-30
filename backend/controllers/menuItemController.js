@@ -3,17 +3,27 @@ const Order = require('../models/Order');
 
 exports.createMenuItem = async (req, res) => {
   try {
-    const { name, description, price, category, stockQuantity } = req.body;
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : '';
+    const { name, price, category, stockQuantity, availabilityStatus } = req.body;
+    
+    // If multer successfully saved the file, it will be in req.file
+    // We create the URL path to save in MongoDB
+    let imageUrl = '';
+    if (req.file) {
+      imageUrl = `/uploads/${req.file.filename}`;
+    }
 
-    const newItem = new MenuItem({
-      name, description, price, category, stockQuantity, imageUrl
+    const newItem = await Menu.create({
+      name,
+      price,
+      category,
+      stockQuantity,
+      availabilityStatus,
+      imageUrl // Save the generated URL to the database
     });
 
-    await newItem.save();
     res.status(201).json(newItem);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating item', error: error.message });
+    res.status(500).json({ message: 'Error creating menu item' });
   }
 };
 
