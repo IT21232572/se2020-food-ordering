@@ -137,8 +137,11 @@ export default function AdminScreen() {
               headers: { Authorization: `Bearer ${token}` }
             });
             fetchMenu();
-          } catch (error) {
-            Alert.alert('Error', 'Could not delete the item.');
+          } catch (error: any) {
+            Alert.alert(
+              'Delete Failed', 
+              error?.response?.data?.message || 'Could not delete the item.'
+            );
           }
         }
       }
@@ -219,6 +222,12 @@ export default function AdminScreen() {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View style={styles.card}>
+            {/* Add this Image component */}
+            <Image 
+              source={{ uri: item.imageUrl ? `https://se2020-food-ordering-backend.onrender.com${item.imageUrl}` : 'https://via.placeholder.com/60' }} 
+              style={styles.thumbnail} 
+            />
+            
             <View style={styles.cardInfo}>
               <Text style={styles.itemName}>{item.name}</Text>
               <Text style={styles.itemDetails}>Rs {item.price} | Stock: {item.stockQuantity}</Text>
@@ -261,4 +270,5 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
   imagePickerBtn: { backgroundColor: '#007bff', padding: 10, borderRadius: 6, marginBottom: 10, alignItems: 'center', justifyContent: 'center', minHeight: 45 },
   previewImage: { width: 100, height: 100, borderRadius: 8, resizeMode: 'cover' },
+  thumbnail: { width: 60, height: 60, borderRadius: 8, marginRight: 12, backgroundColor: '#eee' },
 });
