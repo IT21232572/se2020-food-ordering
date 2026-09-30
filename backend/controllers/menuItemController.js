@@ -23,7 +23,9 @@ exports.createMenuItem = async (req, res) => {
 
     res.status(201).json(newItem);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating menu item' });
+    // This forces the error to print in the Render Live Tail
+    console.error("Create Item Error:", error); 
+    res.status(500).json({ message: 'Error creating menu item', error: error.message });
   }
 };
 

@@ -99,7 +99,7 @@ export default function AdminScreen() {
         await apiClient.put(`/menu/${editingId}`, formData, {
           headers: { 
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data' // Required for files
+            
           }
         });
         Alert.alert('Success', 'Item updated successfully.');
@@ -107,7 +107,7 @@ export default function AdminScreen() {
         await apiClient.post('/menu', formData, {
           headers: { 
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data' // Required for files
+            
           }
         });
         Alert.alert('Success', 'New item added successfully.');
@@ -116,6 +116,10 @@ export default function AdminScreen() {
       resetForm();
       fetchMenu();
     } catch (error: any) {
+      // 1. ADD THIS LINE to print the full error to your VS Code terminal
+      console.log("=== UPLOAD ERROR ===", error?.response?.data || error.message || error);
+      
+      // 2. This is your existing alert
       Alert.alert('Save Failed', error?.response?.data?.message || 'Check your connection.');
     }
   };
