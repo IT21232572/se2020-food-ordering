@@ -12,7 +12,7 @@ exports.createMenuItem = async (req, res) => {
       imageUrl = `/uploads/${req.file.filename}`;
     }
 
-    const newItem = await Menu.create({
+    const newItem = await MenuItem.create({
       name,
       price,
       category,
