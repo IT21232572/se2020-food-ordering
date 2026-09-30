@@ -2,9 +2,14 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { createMenuItem, updateMenuItem, getAllMenuItems, deleteMenuItem } = require('../controllers/menuItemController');
 // Assuming you have an auth/admin middleware. If not, omit it for now.
 const auth = require('../middleware/authMiddleware'); 
+const uploadDir = 'uploads/';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
 
 // Configure Multer to save files in the 'uploads' folder
 const storage = multer.diskStorage({

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, StyleSheet, FlatList, Alert, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../api/client';
+import * as ImagePicker from 'expo-image-picker';
 
 interface MenuItem {
   _id: string;
@@ -24,7 +25,7 @@ export default function AdminScreen() {
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
   const [stockQuantity, setStockQuantity] = useState('');
-  const [imageUrl, setImageUrl] = useState(''); // E.g., /uploads/bread.webp
+  const [imageUri, setImageUri] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMenu();
@@ -52,7 +53,7 @@ export default function AdminScreen() {
     setPrice('');
     setCategory('');
     setStockQuantity('');
-    setImageUrl('');
+    setImageUri(null);
   };
 
   const handleEditClick = (item: MenuItem) => {
@@ -61,7 +62,7 @@ export default function AdminScreen() {
     setPrice(item.price.toString());
     setCategory(item.category);
     setStockQuantity(item.stockQuantity.toString());
-    setImageUrl(item.imageUrl);
+    setImageUri(null);
   };
 
   const handleSave = async () => {
@@ -72,25 +73,42 @@ export default function AdminScreen() {
 
     try {
       const token = await AsyncStorage.getItem('token');
-      const payload = {
-        name,
-        price: Number(price),
-        category,
-        stockQuantity: Number(stockQuantity),
-        imageUrl,
-        availabilityStatus: Number(stockQuantity) > 0 ? 'In Stock' : 'Out of Stock'
-      };
+      
+      // Use FormData instead of a standard JSON object to send files
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('price', price);
+      formData.append('category', category);
+      formData.append('stockQuantity', stockQuantity);
+      formData.append('availabilityStatus', Number(stockQuantity) > 0 ? 'In Stock' : 'Out of Stock');
+
+      // Append the image file if one was selected
+      if (imageUri) {
+        const filename = imageUri.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : `image`;
+
+        formData.append('image', {
+          uri: imageUri,
+          name: filename,
+          type,
+        } as any);
+      }
 
       if (editingId) {
-        // Update existing item
-        await apiClient.put(`/menu/${editingId}`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
+        await apiClient.put(`/menu/${editingId}`, formData, {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data' // Required for files
+          }
         });
         Alert.alert('Success', 'Item updated successfully.');
       } else {
-        // Create new item
-        await apiClient.post('/menu', payload, {
-          headers: { Authorization: `Bearer ${token}` }
+        await apiClient.post('/menu', formData, {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data' // Required for files
+          }
         });
         Alert.alert('Success', 'New item added successfully.');
       }
@@ -123,6 +141,19 @@ export default function AdminScreen() {
     ]);
   };
 
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], // This fixes the deprecation warning
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
   const renderForm = () => (
     <View style={styles.formContainer}>
       <Text style={styles.sectionTitle}>{editingId ? 'Edit Menu Item' : 'Add New Menu Item'}</Text>
@@ -132,7 +163,16 @@ export default function AdminScreen() {
         <TextInput style={[styles.input, styles.halfInput]} placeholder="Stock Qty" value={stockQuantity} onChangeText={setStockQuantity} keyboardType="numeric" />
       </View>
       <TextInput style={styles.input} placeholder="Category (e.g., Bakery, Beverages)" value={category} onChangeText={setCategory} />
-      <TextInput style={styles.input} placeholder="Image URL (e.g., /uploads/new.webp)" value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" />
+      <TouchableOpacity 
+        style={styles.imagePickerBtn} 
+        onPress={pickImage}
+      >
+        {imageUri ? (
+          <Image source={{ uri: imageUri }} style={styles.previewImage} />
+        ) : (
+          <Text style={styles.btnText}>Select Image from Device</Text>
+        )}
+      </TouchableOpacity>
       
       <View style={styles.formActionRow}>
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
@@ -171,7 +211,7 @@ export default function AdminScreen() {
       <FlatList
         data={menuItems}
         keyExtractor={(item) => item._id}
-        ListHeaderComponent={renderForm}
+        ListHeaderComponent={renderForm()}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -214,5 +254,7 @@ const styles = StyleSheet.create({
   actionButtons: { flexDirection: 'row', gap: 8 },
   editBtn: { backgroundColor: '#007bff', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
   deleteBtn: { backgroundColor: '#dc3545', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 }
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
+  imagePickerBtn: { backgroundColor: '#007bff', padding: 10, borderRadius: 6, marginBottom: 10, alignItems: 'center', justifyContent: 'center', minHeight: 45 },
+  previewImage: { width: 100, height: 100, borderRadius: 8, resizeMode: 'cover' },
 });
