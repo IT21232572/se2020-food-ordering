@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { createMenuItem, updateMenuItem, getAllMenuItems, deleteMenuItem } = require('../controllers/menuController');
+const { createMenuItem, updateMenuItem, getAllMenuItems, deleteMenuItem } = require('../controllers/menuItemController');
 // Assuming you have an auth/admin middleware. If not, omit it for now.
 const auth = require('../middleware/authMiddleware'); 
 
