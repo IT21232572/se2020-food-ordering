@@ -3,6 +3,7 @@ import { View, TextInput, Button, Text, StyleSheet, Alert, TouchableOpacity } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import apiClient from '../api/client';
+import { jwtDecode } from 'jwt-decode';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -12,12 +13,22 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     try {
       const response = await apiClient.post('/auth/login', { email, password });
+      const token = response.data.token;
       
       // Save JWT token
-      await AsyncStorage.setItem('token', response.data.token);
+      await AsyncStorage.setItem('token', token);
       
-      // Navigate to the menu screen
-      router.replace('/menu');
+      // Decode the token to check the role
+      const decodedToken: any = jwtDecode(token);
+      console.log("Decoded Token Data:", decodedToken);
+      
+      // Route based on the role
+      if (decodedToken.role === 'admin') {
+        router.replace('/admin');
+      } else {
+        router.replace('/menu');
+      }
+      
     } catch (error: any) {
       Alert.alert(
         'Login Failed',

@@ -52,14 +52,14 @@ exports.login = async (req, res) => {
 
     // Generate JWT
     // Inside your login function, update the jwt.sign payload:
-const token = jwt.sign(
+  const token = jwt.sign(
   { 
     userId: user._id, 
     role: user.role // Add this line!
   }, 
   process.env.JWT_SECRET, 
   { expiresIn: '30d' }
-);
+  );
 
     res.status(200).json({ token, user: { id: user._id, name: user.name, email: user.email } });
   } catch (error) {
