@@ -139,3 +139,35 @@ exports.deleteOrder = async (req, res) => {
     res.status(500).json({ message: 'Error deleting order', error: error.message });
   }
 };
+
+// Fetch all orders for the Admin
+exports.getAllOrdersForAdmin = async (req, res) => {
+  try {
+    // .populate() pulls in the actual user name and food name instead of just the IDs
+    const orders = await Order.find()
+      .populate('userId', 'name email')
+      .populate('menuItemId', 'name price')
+      .sort({ createdAt: -1 }); // Newest orders first
+      
+    res.status(200).json(orders);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching all orders', error: error.message });
+  }
+};
+
+// Update an order's status
+exports.updateOrderStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const updatedOrder = await Order.findByIdAndUpdate(
+      req.params.id, 
+      { status }, 
+      { returnDocument: 'after' }
+    );
+    
+    if (!updatedOrder) return res.status(404).json({ message: 'Order not found' });
+    res.status(200).json(updatedOrder);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating status', error: error.message });
+  }
+};

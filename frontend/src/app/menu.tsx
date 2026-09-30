@@ -54,9 +54,13 @@ const MenuItemCard = ({ item, onOrder }: { item: MenuItem; onOrder: (item: MenuI
 
   return (
     <View style={styles.card}>
-      {item.imageUrl && (
-        <Image source={{ uri: fullImageUrl }} style={styles.image} resizeMode="cover" />
-      )}
+      {/* Updated Image tag with fallback */}
+      <Image 
+        source={{ uri: item.imageUrl ? `https://se2020-food-ordering-backend.onrender.com${item.imageUrl}` : 'https://via.placeholder.com/200' }} 
+        style={styles.image} 
+        resizeMode="cover" 
+      />
+      
       <Text style={styles.name}>{item.name}</Text>
       <Text style={styles.details}>Category: {item.category} | Price: Rs {item.price}</Text>
       <Text style={[styles.stock, item.stockQuantity === 0 && styles.outOfStock]}>

@@ -73,54 +73,51 @@ export default function AdminScreen() {
 
     try {
       const token = await AsyncStorage.getItem('token');
-      
-      // Use FormData instead of a standard JSON object to send files
       const formData = new FormData();
-      formData.append('name', name);
-      formData.append('price', price);
-      formData.append('category', category);
-      formData.append('stockQuantity', stockQuantity);
+      
+      // Force all text fields to be strict strings to prevent FormData crashes
+      formData.append('name', String(name));
+      formData.append('price', String(price));
+      formData.append('category', String(category));
+      formData.append('stockQuantity', String(stockQuantity));
       formData.append('availabilityStatus', Number(stockQuantity) > 0 ? 'In Stock' : 'Out of Stock');
 
-      // Append the image file if one was selected
       if (imageUri) {
-        const filename = imageUri.split('/').pop();
-        const match = /\.(\w+)$/.exec(filename || '');
-        const type = match ? `image/${match[1]}` : `image`;
+        const filename = imageUri.split('/').pop() || 'upload.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        let type = match ? `image/${match[1]}` : `image/jpeg`;
+        
+        // React Native often rejects "image/jpg", it must be "image/jpeg"
+        if (type === 'image/jpg') type = 'image/jpeg';
 
         formData.append('image', {
           uri: imageUri,
           name: filename,
-          type,
+          type: type,
         } as any);
       }
 
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json',
+        }
+      };
+
       if (editingId) {
-        await apiClient.put(`/menu/${editingId}`, formData, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            
-          }
-        });
+        await apiClient.put(`/menu/${editingId}`, formData, config);
         Alert.alert('Success', 'Item updated successfully.');
       } else {
-        await apiClient.post('/menu', formData, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            
-          }
-        });
+        await apiClient.post('/menu', formData, config);
         Alert.alert('Success', 'New item added successfully.');
       }
       
       resetForm();
       fetchMenu();
     } catch (error: any) {
-      // 1. ADD THIS LINE to print the full error to your VS Code terminal
-      console.log("=== UPLOAD ERROR ===", error?.response?.data || error.message || error);
-      
-      // 2. This is your existing alert
-      Alert.alert('Save Failed', error?.response?.data?.message || 'Check your connection.');
+      console.log("=== AXIOS UPLOAD ERROR ===", error?.response?.data || error.message || error);
+      Alert.alert('Save Failed', 'Could not save the item. Check your terminal logs.');
     }
   };
 
@@ -208,9 +205,14 @@ export default function AdminScreen() {
         options={{
           title: 'Manage Menu',
           headerRight: () => (
-            <TouchableOpacity onPress={handleLogout} style={{ marginRight: 15 }}>
-              <Text style={{ fontWeight: 'bold', color: '#dc3545' }}>Logout</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => router.push('/admin-orders')} style={{ marginRight: 20 }}>
+                <Text style={{ fontWeight: 'bold', color: '#007bff' }}>View Orders</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleLogout} style={{ marginRight: 15 }}>
+                <Text style={{ fontWeight: 'bold', color: '#dc3545' }}>Logout</Text>
+              </TouchableOpacity>
+            </View>
           )
         }} 
       />

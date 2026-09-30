@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createOrder, getAllOrders, getOrderById, updateOrder, deleteOrder } = require('../controllers/orderController');
+const { createOrder, getAllOrders, getOrderById, updateOrder, deleteOrder,getAllOrdersForAdmin, updateOrderStatus } = require('../controllers/orderController');
 const auth = require('../middleware/authMiddleware');
 
 // 1. IMPORT YOUR ORDER MODEL HERE (Adjust the path if your model folder is different)
@@ -25,5 +25,7 @@ router.get('/', auth, getAllOrders);
 router.get('/:id', auth, getOrderById);
 router.put('/:id', auth, updateOrder);
 router.delete('/:id', auth, deleteOrder);
+router.get('/all', auth, getAllOrdersForAdmin);
+router.put('/:id/status', auth, updateOrderStatus);
 
 module.exports = router;
