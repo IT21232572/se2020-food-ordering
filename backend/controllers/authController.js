@@ -6,6 +6,19 @@ const jwt = require('jsonwebtoken');
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    // Backend Validation
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'All fields are required.' });
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: 'Invalid email format.' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ message: 'Password must be at least 6 characters.' });
+  }
     
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -38,7 +51,15 @@ exports.login = async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
     // Generate JWT
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    // Inside your login function, update the jwt.sign payload:
+const token = jwt.sign(
+  { 
+    userId: user._id, 
+    role: user.role // Add this line!
+  }, 
+  process.env.JWT_SECRET, 
+  { expiresIn: '30d' }
+);
 
     res.status(200).json({ token, user: { id: user._id, name: user.name, email: user.email } });
   } catch (error) {

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Button, Alert, Image, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity, Image, ScrollView, Button } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
+import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import apiClient from '../api/client';
-import { Stack, useRouter } from 'expo-router';
 
 interface MenuItem {
   _id: string;
@@ -101,9 +101,11 @@ export default function MenuScreen() {
     router.replace('/');
   };
 
-  useEffect(() => {
-    fetchMenu();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchMenu();
+    }, [])
+  );
 
   const fetchMenu = async () => {
     try {
