@@ -28,8 +28,12 @@ export default function AdminOrdersScreen() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrders(response.data);
-    } catch (error) {
-      Alert.alert('Error', 'Could not load orders.');
+    } catch (error: any) {
+      // 1. ADD THIS to print the exact backend error to your VS Code terminal
+      console.log("=== FETCH ORDERS ERROR ===", error?.response?.data || error.message);
+      
+      // 2. Update the alert to show the specific message if available
+      Alert.alert('Error', error?.response?.data?.message || 'Could not load orders.');
     } finally {
       setLoading(false);
     }

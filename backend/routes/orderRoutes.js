@@ -20,12 +20,11 @@ router.get('/user/:userId', auth, async (req, res) => {
     res.status(500).json({ message: 'Error fetching orders' });
   }
 });
-
+router.get('/all', auth, getAllOrdersForAdmin);
 router.get('/', auth, getAllOrders);
 router.get('/:id', auth, getOrderById);
 router.put('/:id', auth, updateOrder);
 router.delete('/:id', auth, deleteOrder);
-router.get('/all', auth, getAllOrdersForAdmin);
 router.put('/:id/status', auth, updateOrderStatus);
 
 module.exports = router;
