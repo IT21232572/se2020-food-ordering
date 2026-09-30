@@ -4,7 +4,7 @@ const { createOrder, getAllOrders, getOrderById, updateOrder, deleteOrder } = re
 const auth = require('../middleware/authMiddleware');
 
 // 1. IMPORT YOUR ORDER MODEL HERE (Adjust the path if your model folder is different)
-const Order = require('../models/orderModel'); 
+const Order = require('../models/Order'); 
 
 router.post('/', auth, createOrder);
 
