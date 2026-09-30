@@ -11,7 +11,10 @@ router.post('/', auth, createOrder);
 // 2. ADD "auth" HERE to protect the route
 router.get('/user/:userId', auth, async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+    // .populate() tells MongoDB to fetch the full food details based on the stored ID
+    const orders = await Order.find({ userId: req.params.userId })
+                              .populate('menuItemId')
+                              .sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching orders' });
