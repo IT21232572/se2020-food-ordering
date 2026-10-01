@@ -16,6 +16,7 @@ interface Order {
 export default function AdminOrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>('All');
 
   useEffect(() => {
     fetchOrders();
@@ -29,10 +30,7 @@ export default function AdminOrdersScreen() {
       });
       setOrders(response.data);
     } catch (error: any) {
-      // 1. ADD THIS to print the exact backend error to your VS Code terminal
       console.log("=== FETCH ORDERS ERROR ===", error?.response?.data || error.message);
-      
-      // 2. Update the alert to show the specific message if available
       Alert.alert('Error', error?.response?.data?.message || 'Could not load orders.');
     } finally {
       setLoading(false);
@@ -51,7 +49,7 @@ export default function AdminOrdersScreen() {
       );
       
       Alert.alert('Success', `Order marked as ${newStatus}`);
-      fetchOrders(); // Refresh the list
+      fetchOrders(); 
     } catch (error: any) {
       Alert.alert('Update Failed', error?.response?.data?.message || 'Check your connection.');
     }
@@ -65,14 +63,37 @@ export default function AdminOrdersScreen() {
     );
   }
 
+  // Filter the orders before passing them to the FlatList
+  const filteredOrders = orders.filter(order => {
+    if (statusFilter === 'All') return true;
+    const currentStatus = order.status || 'Pending';
+    return currentStatus === statusFilter;
+  });
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Global Orders' }} />
       
+      {/* Filter Bar */}
+      <View style={styles.filterWrapper}>
+        {['All', 'Pending', 'Completed'].map(status => (
+          <TouchableOpacity 
+            key={status} 
+            style={[styles.filterBtn, statusFilter === status && styles.filterBtnActive]}
+            onPress={() => setStatusFilter(status)}
+          >
+            <Text style={[styles.filterText, statusFilter === status && styles.filterTextActive]}>
+              {status}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={orders}
+        data={filteredOrders}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={<Text style={styles.emptyText}>No {statusFilter.toLowerCase()} orders found.</Text>}
         renderItem={({ item }) => {
           const isCompleted = item.status === 'Completed';
           const foodName = item.menuItemId?.name || 'Deleted Item';
@@ -82,7 +103,12 @@ export default function AdminOrdersScreen() {
           return (
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.customerName}>Customer: {customerName}</Text>
+                {/* Wrap the Customer Name and Order ID together */}
+                <View style={styles.customerInfo}>
+                  <Text style={styles.customerName}>Customer: {customerName}</Text>
+                  <Text style={styles.orderId}>Order ID: {item._id}</Text>
+                </View>
+                
                 <Text style={[styles.statusBadge, isCompleted ? styles.statusCompleted : styles.statusPending]}>
                   {item.status || 'Pending'}
                 </Text>
@@ -111,10 +137,18 @@ export default function AdminOrdersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f4f4f4' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  filterWrapper: { flexDirection: 'row', backgroundColor: '#fff', padding: 12, elevation: 2, justifyContent: 'space-around' },
+  filterBtn: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#e0e0e0' },
+  filterBtnActive: { backgroundColor: '#007bff' },
+  filterText: { fontSize: 14, fontWeight: 'bold', color: '#555' },
+  filterTextActive: { color: '#fff' },
   list: { padding: 16 },
+  emptyText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#666' },
   card: { backgroundColor: '#fff', padding: 16, borderRadius: 8, marginBottom: 12, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   customerName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  customerInfo: { flex: 1, marginRight: 10 },
+  orderId: { fontSize: 12, color: '#888', marginTop: 2 },
   statusBadge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, fontWeight: 'bold', overflow: 'hidden' },
   statusPending: { backgroundColor: '#ffeeba', color: '#856404' },
   statusCompleted: { backgroundColor: '#d4edda', color: '#155724' },

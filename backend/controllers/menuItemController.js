@@ -66,18 +66,21 @@ exports.getMenuItemById = async (req, res) => {
 
 exports.deleteMenuItem = async (req, res) => {
   try {
-    // Check if any orders exist for this item
-    const existingOrders = await Order.findOne({ menuItemId: req.params.id });
-    
-    if (existingOrders) {
+    // Check if any PENDING orders exist for this item
+    const pendingOrders = await Order.findOne({ 
+      menuItemId: req.params.id,
+      status: 'Pending' 
+    });
+
+    if (pendingOrders) {
       return res.status(400).json({ 
-        message: 'Cannot delete this menu item because it is tied to existing orders.' 
+        message: 'Cannot delete this menu item because it is tied to active pending orders.' 
       });
     }
 
     const item = await MenuItem.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ message: 'Item not found' });
-    
+
     res.status(200).json({ message: 'Menu item deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting item', error: error.message });
