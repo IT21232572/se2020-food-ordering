@@ -77,13 +77,43 @@ exports.updateOrder = async (req, res) => {
 
     let newTotal = 0;
 
-    // Calculate new total based on edited quantities
+    // 1. Process stock differences for each item
     for (const reqItem of items) {
-       const menuDoc = await MenuItem.findById(reqItem.menuItemId._id || reqItem.menuItemId);
-       newTotal += (menuDoc.price * reqItem.quantity);
+      const menuItemId = reqItem.menuItemId._id || reqItem.menuItemId;
+      const menuDoc = await MenuItem.findById(menuItemId);
+      
+      if (!menuDoc) return res.status(404).json({ message: 'Menu item not found' });
+
+      // Find the old quantity for this specific item in the original order
+      const oldItem = order.items.find(i => i.menuItemId.toString() === menuItemId.toString());
+      const oldQuantity = oldItem ? oldItem.quantity : 0;
+      
+      // Calculate the difference (Positive = adding more items, Negative = removing items)
+      const quantityDifference = reqItem.quantity - oldQuantity;
+
+      // Check if there is enough stock for an increase
+      if (quantityDifference > 0 && menuDoc.stockQuantity < quantityDifference) {
+        return res.status(400).json({ message: `Not enough stock for ${menuDoc.name} to increase order` });
+      }
+
+      // Adjust stock based on the difference 
+      // (Subtracts if they added more, Adds back to stock if they reduced the order)
+      menuDoc.stockQuantity -= quantityDifference;
+
+      // Update availability status
+      if (menuDoc.stockQuantity <= 0) {
+        menuDoc.availabilityStatus = 'Out of Stock';
+      } else {
+        menuDoc.availabilityStatus = 'In Stock';
+      }
+
+      await menuDoc.save();
+
+      // Calculate the new grand total
+      newTotal += (menuDoc.price * reqItem.quantity);
     }
 
-    // Update array and total price
+    // 2. Update the order array and total price
     order.items = items.map(i => ({
        menuItemId: i.menuItemId._id || i.menuItemId,
        quantity: i.quantity
