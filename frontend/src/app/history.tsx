@@ -37,7 +37,9 @@ const OrderCard = ({ item, onUpdate, onDelete }: { item: any, onUpdate: any, onD
         <Text style={styles.details}>Quantity: {item.quantity}</Text>
       )}
 
-      <Text style={styles.status}>Status: {item.status || 'Pending'}</Text>
+      <Text style={[styles.statusBadge, isCompleted ? styles.statusCompleted : styles.statusPending]}>
+        {item.status || 'Pending'}
+      </Text>
       <Text style={styles.date}>Date: {new Date(item.createdAt).toLocaleString()}</Text>
 
       {/* Conditionally hide buttons if the order is completed */}
@@ -61,10 +63,10 @@ const OrderCard = ({ item, onUpdate, onDelete }: { item: any, onUpdate: any, onD
           ) : (
             <>
               <TouchableOpacity style={styles.updateBtn} onPress={() => setIsEditing(true)}>
-                <Text style={styles.btnText}>Edit Order</Text>
+                <Text style={styles.editBtnText}>Edit Order</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item._id)}>
-                <Text style={styles.btnText}>Cancel Order</Text>
+                <Text style={styles.deleteBtnText}>Cancel Order</Text>
               </TouchableOpacity>
             </>
           )}
@@ -155,7 +157,13 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'My Orders' }} />
+      <Stack.Screen 
+        options={{ 
+          title: 'My orders',
+          headerStyle: { backgroundColor: '#4A3022' },
+          headerTintColor: '#FFF'
+        }} 
+      />
       
       {/* Filter Bar */}
       <View style={styles.filterWrapper}>
@@ -184,29 +192,50 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f4f4' },
+  // Backgrounds matching the mockup
+  container: { flex: 1, backgroundColor: '#E8D8C8' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  filterWrapper: { flexDirection: 'row', backgroundColor: '#fff', padding: 12, elevation: 2, justifyContent: 'space-around' },
-  filterBtn: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#e0e0e0' },
-  filterBtnActive: { backgroundColor: '#007bff' },
-  filterText: { fontSize: 14, fontWeight: 'bold', color: '#555' },
-  filterTextActive: { color: '#fff' },
+  
+  // Filter Bar
+  filterWrapper: { flexDirection: 'row', backgroundColor: '#E8D8C8', padding: 12, elevation: 0, justifyContent: 'space-around', marginBottom: 8 },
+  filterBtn: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#AFA49B' },
+  filterBtnActive: { backgroundColor: '#C8945A' },
+  filterText: { fontSize: 14, fontWeight: 'bold', color: '#4A3022' },
+  filterTextActive: { color: '#4A3022' },
+  
+  // List & Cards
   list: { padding: 16 },
-  card: { backgroundColor: '#fff', padding: 16, marginBottom: 12, borderRadius: 8, elevation: 2 },
-  orderId: { fontSize: 13, color: '#888', marginBottom: 8 },
-  details: { fontSize: 16, color: '#333', marginBottom: 4 },
-  status: { fontSize: 16, fontWeight: 'bold', color: '#28a745', marginBottom: 4 },
-  date: { fontSize: 14, color: '#666', marginBottom: 12 },
+  card: { backgroundColor: '#F5EFE6', padding: 16, marginBottom: 12, borderRadius: 8, elevation: 2 },
+  
+  // Text Colors
+  orderId: { fontSize: 13, color: '#7A5C4A', marginBottom: 8 },
+  details: { fontSize: 16, color: '#4A3022', marginBottom: 4 },
+  status: { fontSize: 16, fontWeight: 'bold', color: '#4A3022', marginBottom: 4 },
+  date: { fontSize: 14, color: '#7A5C4A', marginBottom: 12 },
+  
+  // Quantity Selector
   editRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  qtyBtn: { backgroundColor: '#ddd', width: 28, height: 28, justifyContent: 'center', alignItems: 'center', borderRadius: 14, marginHorizontal: 10 },
-  qtyText: { fontSize: 16, fontWeight: 'bold' },
-  qtyLabel: { fontSize: 16, fontWeight: 'bold' },
+  qtyBtn: { backgroundColor: '#dccfc1', width: 28, height: 28, justifyContent: 'center', alignItems: 'center', borderRadius: 14, marginHorizontal: 10 },
+  qtyText: { fontSize: 16, fontWeight: 'bold', color: '#4A3022' },
+  qtyLabel: { fontSize: 16, fontWeight: 'bold', color: '#4A3022' },
+  
+  // List Button Colors
   buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  updateBtn: { backgroundColor: '#007bff', paddingVertical: 8, borderRadius: 6, flex: 0.48, alignItems: 'center' },
-  deleteBtn: { backgroundColor: '#dc3545', paddingVertical: 8, borderRadius: 6, flex: 0.48, alignItems: 'center' },
-  saveBtn: { backgroundColor: '#28a745', paddingVertical: 8, borderRadius: 6, flex: 0.48, alignItems: 'center' },
-  cancelEditBtn: { backgroundColor: '#6c757d', paddingVertical: 8, borderRadius: 6, flex: 0.48, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: 'bold' },
-  empty: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#666' },
-  lockedText: { color: '#007bff', fontSize: 14, fontStyle: 'italic', marginTop: 8 }
+  updateBtn: { backgroundColor: '#4A3022', paddingVertical: 8, borderRadius: 6, flex: 0.48, alignItems: 'center' },
+  deleteBtn: { backgroundColor: '#C8945A', paddingVertical: 8, borderRadius: 6, flex: 0.48, alignItems: 'center' },
+  saveBtn: { backgroundColor: '#4A3022', paddingVertical: 8, borderRadius: 6, flex: 0.48, alignItems: 'center' },
+  cancelEditBtn: { backgroundColor: '#C8945A', paddingVertical: 8, borderRadius: 6, flex: 0.48, alignItems: 'center' },
+  
+  // Button Texts
+  btnText: { color: '#fff', fontWeight: 'bold' }, // Fallback
+  editBtnText: { color: '#FFF', fontWeight: 'bold' },
+  deleteBtnText: { color: '#4A3022', fontWeight: 'bold' },
+  
+  // Empty State & Locked Text
+  empty: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#4A3022' },
+  lockedText: { color: '#deaf79', fontSize: 14, fontStyle: 'italic', marginTop: 8 },
+  // Status Badges matching the mockup
+  statusBadge: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20, fontWeight: 'bold', overflow: 'hidden', marginTop: 4, marginBottom: 8, fontSize: 14 },
+  statusPending: { backgroundColor: '#C8945A', color: '#4A3022' },
+  statusCompleted: { backgroundColor: '#4A3022', color: '#FFF' },
 });

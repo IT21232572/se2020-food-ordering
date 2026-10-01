@@ -72,7 +72,13 @@ export default function AdminOrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Global Orders' }} />
+      <Stack.Screen 
+        options={{ 
+          title: 'Global Orders',
+          headerStyle: { backgroundColor: '#4A3022' },
+          headerTintColor: '#FFF'
+        }} 
+      />
       
       {/* Filter Bar */}
       <View style={styles.filterWrapper}>
@@ -122,7 +128,8 @@ export default function AdminOrdersScreen() {
                 style={[styles.btn, isCompleted ? styles.btnUndo : styles.btnComplete]} 
                 onPress={() => handleUpdateStatus(item._id, item.status || 'Pending')}
               >
-                <Text style={styles.btnText}>
+                {/* Add the dynamic text styles here */}
+                <Text style={[styles.btnText, isCompleted ? styles.btnTextUndo : styles.btnTextComplete]}>
                   {isCompleted ? 'Undo (Mark Pending)' : 'Mark as Completed'}
                 </Text>
               </TouchableOpacity>
@@ -135,28 +142,41 @@ export default function AdminOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f4f4' },
+  // Backgrounds matching the mockup
+  container: { flex: 1, backgroundColor: '#E8D8C8' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  filterWrapper: { flexDirection: 'row', backgroundColor: '#fff', padding: 12, elevation: 2, justifyContent: 'space-around' },
-  filterBtn: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#e0e0e0' },
-  filterBtnActive: { backgroundColor: '#007bff' },
-  filterText: { fontSize: 14, fontWeight: 'bold', color: '#555' },
-  filterTextActive: { color: '#fff' },
+  
+  // Filter Bar
+  filterWrapper: { flexDirection: 'row', backgroundColor: '#E8D8C8', padding: 12, elevation: 0, justifyContent: 'space-around', marginBottom: 8 },
+  filterBtn: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#AFA49B' },
+  filterBtnActive: { backgroundColor: '#C8945A' },
+  filterText: { fontSize: 14, fontWeight: 'bold', color: '#4A3022' },
+  filterTextActive: { color: '#4A3022' },
+  
+  // List & Cards
   list: { padding: 16 },
-  emptyText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#666' },
-  card: { backgroundColor: '#fff', padding: 16, borderRadius: 8, marginBottom: 12, elevation: 2 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  customerName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  emptyText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#4A3022' },
+  card: { backgroundColor: '#F5EFE6', padding: 16, borderRadius: 8, marginBottom: 12, elevation: 2 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'flex-start' },
   customerInfo: { flex: 1, marginRight: 10 },
-  orderId: { fontSize: 12, color: '#888', marginTop: 2 },
-  statusBadge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, fontWeight: 'bold', overflow: 'hidden' },
-  statusPending: { backgroundColor: '#ffeeba', color: '#856404' },
-  statusCompleted: { backgroundColor: '#d4edda', color: '#155724' },
-  foodText: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
-  priceText: { fontSize: 15, color: '#555', marginBottom: 4 },
-  dateText: { fontSize: 12, color: '#888', marginBottom: 12 },
+  customerName: { fontSize: 16, fontWeight: 'bold', color: '#4A3022' },
+  orderId: { fontSize: 12, color: '#7A5C4A', marginTop: 2 },
+  
+  // Status Badges (Pill Shape)
+  statusBadge: { paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20, fontWeight: 'bold', overflow: 'hidden', fontSize: 13, textAlign: 'center' },
+  statusPending: { backgroundColor: '#C8945A', color: '#4A3022' },
+  statusCompleted: { backgroundColor: '#4A3022', color: '#FFF' },
+  
+  // Text Colors
+  foodText: { fontSize: 18, fontWeight: 'bold', color: '#4A3022', marginBottom: 4 },
+  priceText: { fontSize: 15, color: '#7A5C4A', marginBottom: 4 },
+  dateText: { fontSize: 12, color: '#7A5C4A', marginBottom: 12 },
+  
+  // Action Buttons
   btn: { padding: 12, borderRadius: 6, alignItems: 'center' },
-  btnComplete: { backgroundColor: '#28a745' },
-  btnUndo: { backgroundColor: '#6c757d' },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 }
+  btnComplete: { backgroundColor: '#4A3022' }, // Dark brown for primary action
+  btnUndo: { backgroundColor: '#C8945A' }, // Muted gold for undo
+  btnText: { fontWeight: 'bold', fontSize: 14 },
+  btnTextComplete: { color: '#FFF' },
+  btnTextUndo: { color: '#4A3022' }
 });

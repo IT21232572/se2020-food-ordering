@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, TextInput, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import apiClient from '../api/client';
 
@@ -10,20 +10,17 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
 
   const handleRegister = async () => {
-    // 1. Check for empty fields
     if (!name || !email || !password) {
       Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
 
-    // 2. Validate Email Format using Regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Error', 'Please enter a valid email address.');
       return;
     }
 
-    // 3. Validate Password Length
     if (password.length < 6) {
       Alert.alert('Error', 'Password must be at least 6 characters long.');
       return;
@@ -43,18 +40,26 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Create Account' }} />
+      <Stack.Screen 
+        options={{ 
+          title: 'Create Account',
+          headerStyle: { backgroundColor: '#4A3022' },
+          headerTintColor: '#FFF'
+        }} 
+      />
       <Text style={styles.title}>Sign Up</Text>
       
       <TextInput
         style={styles.input}
         placeholder="Full Name"
+        placeholderTextColor="#888"
         value={name}
         onChangeText={setName}
       />
       <TextInput
         style={styles.input}
         placeholder="Email"
+        placeholderTextColor="#888"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -63,21 +68,23 @@ export default function RegisterScreen() {
       <TextInput
         style={styles.input}
         placeholder="Password"
+        placeholderTextColor="#888"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
       
-      <View style={styles.buttonContainer}>
-        <Button title="Register" onPress={handleRegister} />
-      </View>
+      <TouchableOpacity style={styles.registerBtn} onPress={handleRegister}>
+        <Text style={styles.registerBtnText}>Register</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 12, marginBottom: 16, borderRadius: 8 },
-  buttonContainer: { marginTop: 8 }
+  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#E8D8C8' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: '#4A3022' },
+  input: { borderWidth: 1, borderColor: '#dccfc1', padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: '#F5EFE6', color: '#4A3022' },
+  registerBtn: { backgroundColor: '#4A3022', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 8 },
+  registerBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 }
 });

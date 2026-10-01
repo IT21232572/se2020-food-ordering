@@ -19,73 +19,66 @@ interface MenuItem {
 const MenuItemCard = ({ item, onOrder }: { item: MenuItem; onOrder: (item: MenuItem, qty: number) => void }) => {
   const [quantity, setQuantity] = useState(1);
 
-  const increase = () => {
-    if (quantity < item.stockQuantity) setQuantity(quantity + 1);
-  };
-
-  const decrease = () => {
-    if (quantity > 1) setQuantity(quantity - 1);
-  };
+  const increase = () => { if (quantity < item.stockQuantity) setQuantity(quantity + 1); };
+  const decrease = () => { if (quantity > 1) setQuantity(quantity - 1); };
 
   const handleOrderPress = () => {
     const totalPrice = item.price * quantity;
-    
-    // Trigger the confirmation popup
     Alert.alert(
       'Confirm Order',
       `Order ${quantity}x ${item.name}\nTotal Price: Rs ${totalPrice}`,
       [
-        {
-          text: 'Cancel',
-          style: 'cancel', // This makes it a standard dismiss button
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'OK',
           onPress: () => {
             onOrder(item, quantity);
-            setQuantity(1); // Reset back to 1 only if they click OK
+            setQuantity(1); 
           },
         },
       ]
     );
   };
 
-  const fullImageUrl = `https://se2020-food-ordering-backend.onrender.com${item.imageUrl}`;
-
   return (
     <View style={styles.card}>
-      {/* Updated Image tag with fallback */}
       <Image 
         source={{ uri: item.imageUrl ? `https://se2020-food-ordering-backend.onrender.com${item.imageUrl}` : 'https://via.placeholder.com/200' }} 
         style={styles.image} 
         resizeMode="cover" 
       />
       
-      <Text style={styles.name}>{item.name}</Text>
-      <Text style={styles.details}>Category: {item.category} | Price: Rs {item.price}</Text>
-      <Text style={[styles.stock, item.stockQuantity === 0 && styles.outOfStock]}>
-        Stock: {item.stockQuantity} ({item.availabilityStatus})
-      </Text>
+      <View style={styles.cardContent}>
+        <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
+        <Text style={styles.details}>{item.category}</Text>
+        <Text style={styles.price}>Rs {item.price}</Text>
+        <Text style={[styles.stock, item.stockQuantity === 0 && styles.outOfStock]}>
+          Stock: {item.stockQuantity} ({item.availabilityStatus})
+        </Text>
 
-      {/* 2. Quantity Selector UI */}
-      {item.stockQuantity > 0 && (
-        <View style={styles.quantityContainer}>
-          <TouchableOpacity style={styles.qtyBtn} onPress={decrease}>
-            <Text style={styles.qtyText}>-</Text>
-          </TouchableOpacity>
-          <Text style={styles.qtyLabel}>{quantity}</Text>
-          <TouchableOpacity style={styles.qtyBtn} onPress={increase}>
-            <Text style={styles.qtyText}>+</Text>
+        {item.stockQuantity > 0 && (
+          <View style={styles.quantityContainer}>
+            <TouchableOpacity style={styles.qtyBtn} onPress={decrease}>
+              <Text style={styles.qtyText}>-</Text>
+            </TouchableOpacity>
+            <Text style={styles.qtyLabel}>{quantity}</Text>
+            <TouchableOpacity style={styles.qtyBtn} onPress={increase}>
+              <Text style={styles.qtyText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.orderBtn, item.stockQuantity === 0 ? styles.orderBtnDisabled : styles.orderBtnActive]}
+            disabled={item.stockQuantity === 0}
+            onPress={handleOrderPress}
+          >
+            <Text style={[styles.orderBtnText, item.stockQuantity === 0 ? styles.orderBtnTextDisabled : styles.orderBtnTextActive]}>
+              Order ({quantity})
+            </Text>
           </TouchableOpacity>
         </View>
-      )}
-
-      <View style={styles.buttonContainer}>
-        <Button
-          title={`Place Order (Qty: ${quantity})`}
-          disabled={item.stockQuantity === 0}
-          onPress={handleOrderPress} 
-        />
       </View>
     </View>
   );
@@ -173,17 +166,20 @@ export default function MenuScreen() {
 
         <Stack.Screen 
         options={{
+          title: 'Menu',
+          headerStyle: { backgroundColor: '#4A3022' },
+          headerTintColor: '#FFF',
           headerRight: () => (
-            <View style={{ flexDirection: 'row', marginRight: 15 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity onPress={() => router.push('/history')} style={{ marginRight: 20 }}>
-                <Text style={{ fontWeight: 'bold', color: '#007bff' }}>My Orders</Text>
-            </TouchableOpacity>
-              <TouchableOpacity onPress={handleLogout}>
-                <Text style={{ fontWeight: 'bold', color: '#dc3545' }}>Logout</Text>
+                <Text style={{ fontWeight: 'bold', color: '#C8945A' }}>My orders</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleLogout} style={{ marginRight: 15 }}>
+                <Text style={{ fontWeight: 'bold', color: '#C8945A' }}>Logout</Text>
               </TouchableOpacity>
             </View>
           )
-        }}
+        }} 
       />
       {/* 3. Horizontal Category Filter Bar */}
       <View style={styles.filterWrapper}>
@@ -207,6 +203,8 @@ export default function MenuScreen() {
         data={filteredMenu}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => <MenuItemCard item={item} onOrder={handleOrder} />}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.list}
       />
     </View>
@@ -214,24 +212,44 @@ export default function MenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f4f4' },
+  // Backgrounds matching the mockup
+  container: { flex: 1, backgroundColor: '#E8D8C8' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  filterWrapper: { backgroundColor: '#fff', paddingVertical: 10, elevation: 2 },
+  
+  // Filter Bar
+  filterWrapper: { backgroundColor: '#E8D8C8', paddingVertical: 10, elevation: 0 },
   categoryContainer: { paddingHorizontal: 16, alignItems: 'center' },
-  categoryBtn: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, backgroundColor: '#e0e0e0', marginRight: 10 },
-  categoryBtnActive: { backgroundColor: '#007bff' },
-  categoryText: { fontSize: 14, fontWeight: 'bold', color: '#555' },
-  categoryTextActive: { color: '#fff' },
-  list: { padding: 16 },
-  card: { backgroundColor: '#fff', padding: 16, marginBottom: 16, borderRadius: 8, elevation: 3 },
-  image: { width: '100%', height: 180, borderRadius: 8, marginBottom: 12 },
-  name: { fontSize: 20, fontWeight: 'bold', marginBottom: 6 },
-  details: { fontSize: 15, color: '#555', marginBottom: 4 },
-  stock: { fontSize: 14, color: '#28a745', fontWeight: '600', marginBottom: 12 },
-  outOfStock: { color: '#dc3545' },
-  quantityContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  qtyBtn: { backgroundColor: '#ddd', width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 18 },
-  qtyText: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  qtyLabel: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 20 },
-  buttonContainer: { marginTop: 8 },
+  categoryBtn: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, backgroundColor: '#AFA49B', marginRight: 10 }, // Taupe/Grey inactive
+  categoryBtnActive: { backgroundColor: '#C8945A' }, // Gold active
+  categoryText: { fontSize: 14, fontWeight: 'bold', color: '#4A3022' },
+  categoryTextActive: { color: '#4A3022' }, // Text stays dark brown when active
+  
+  // Grid & Cards
+  list: { padding: 8 },
+  columnWrapper: { justifyContent: 'space-between', paddingHorizontal: 4 },
+  card: { backgroundColor: '#F5EFE6', borderRadius: 12, elevation: 2, flex: 1, margin: 8, overflow: 'hidden', maxWidth: '46%' },
+  image: { width: '100%', height: 130, backgroundColor: '#dccfc1' },
+  cardContent: { padding: 12, alignItems: 'center' },
+  
+  // Text Colors
+  name: { fontSize: 15, fontWeight: 'bold', marginBottom: 4, textAlign: 'center', minHeight: 40, textAlignVertical: 'center', color: '#4A3022' },
+  details: { fontSize: 12, color: '#7A5C4A', marginBottom: 4, textAlign: 'center' },
+  price: { fontSize: 16, fontWeight: 'bold', color: '#4A3022', marginBottom: 6 },
+  stock: { fontSize: 11, color: '#7A5C4A', fontWeight: '600', marginBottom: 12, textAlign: 'center' },
+  outOfStock: { color: '#7A5C4A' }, // Reverted from red to muted grey/brown to match mockup
+  
+  // Quantity Selector
+  quantityContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, justifyContent: 'center' },
+  qtyBtn: { backgroundColor: '#C8945A', width: 28, height: 28, justifyContent: 'center', alignItems: 'center', borderRadius: 14 },
+  qtyText: { fontSize: 18, fontWeight: 'bold', color: '#4A3022', marginTop: -2 },
+  qtyLabel: { fontSize: 15, fontWeight: 'bold', color: '#4A3022', marginHorizontal: 12 },
+  
+  // Custom Order Button
+  buttonContainer: { width: '100%' },
+  orderBtn: { paddingVertical: 10, borderRadius: 8, alignItems: 'center', width: '100%' },
+  orderBtnActive: { backgroundColor: '#4A3022' },
+  orderBtnDisabled: { backgroundColor: '#AFA49B' }, // Grey background when out of stock
+  orderBtnText: { fontWeight: 'bold', fontSize: 14 },
+  orderBtnTextActive: { color: '#FFF' },
+  orderBtnTextDisabled: { color: '#4A3022' }
 });

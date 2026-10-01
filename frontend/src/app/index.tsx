@@ -54,7 +54,9 @@ export default function LoginScreen() {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <Button title="Login" onPress={handleLogin} />
+      <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
+        <Text style={styles.loginBtnText}>Login</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/register')} style={styles.linkContainer}>
         <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
@@ -64,9 +66,11 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 12, marginBottom: 16, borderRadius: 8 },
-  linkContainer: { marginTop: 24, alignItems: 'center' },
-  linkText: { color: '#007bff', fontWeight: 'bold', fontSize: 16 }
+  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#E8D8C8' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: '#4A3022' },
+  input: { borderWidth: 1, borderColor: '#dccfc1', padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: '#F5EFE6', color: '#4A3022' },
+  loginBtn: { backgroundColor: '#4A3022', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 8, marginBottom: 24 },
+  loginBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  linkContainer: { marginTop: 12, alignItems: 'center' },
+  linkText: { color: '#C8945A', fontWeight: 'bold', fontSize: 15 }
 });
