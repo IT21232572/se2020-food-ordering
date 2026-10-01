@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import { Stack, useRouter } from 'expo-router';
 import apiClient from '../api/client';
+import { Ionicons } from '@expo/vector-icons';
 
 const OrderCard = ({ item, onUpdate, onDelete }: { item: any, onUpdate: any, onDelete: any }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -26,11 +27,17 @@ const OrderCard = ({ item, onUpdate, onDelete }: { item: any, onUpdate: any, onD
     }
   };
 
+  const handleRemoveItem = (index: number) => {
+    const newItems = [...editItems];
+    newItems.splice(index, 1); // Removes the item completely from the array
+    setEditItems(newItems);
+  };
+
   // Dynamically calculate the total price when editing quantities
   const currentTotal = isEditing 
     ? editItems.reduce((sum: number, curr: any) => sum + ((curr.menuItemId?.price || 0) * curr.quantity), 0)
     : item.totalPrice;
-    
+
   return (
     <View style={styles.card}>
       <Text style={styles.orderId}>Order ID: {item._id}</Text>
@@ -52,6 +59,9 @@ const OrderCard = ({ item, onUpdate, onDelete }: { item: any, onUpdate: any, onD
                   <TouchableOpacity onPress={() => handleIncrease(index)} style={styles.qtySmallBtn}>
                     <Text style={styles.qtySmallText}>+</Text>
                   </TouchableOpacity>
+                   <TouchableOpacity onPress={() => handleRemoveItem(index)} style={{ marginRight: 10 }}>
+                    <Text style={{fontSize: 14 }}>  🗑️</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 <Text style={styles.itemQty}>x{orderItem.quantity}</Text>
@@ -72,7 +82,8 @@ const OrderCard = ({ item, onUpdate, onDelete }: { item: any, onUpdate: any, onD
           {isEditing ? (
             <>
               <TouchableOpacity 
-                style={styles.saveBtn} 
+                style={[styles.saveBtn, editItems.length === 0 && { backgroundColor: '#AFA49B' }]} 
+                disabled={editItems.length === 0}
                 onPress={() => { 
                   onUpdate(item._id, editItems); 
                   setIsEditing(false); 

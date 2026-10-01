@@ -77,30 +77,40 @@ exports.updateOrder = async (req, res) => {
 
     let newTotal = 0;
 
-    // 1. Process stock differences for each item
+    // 1. Identify and refund stock for items that were completely removed
+    const incomingItemIds = items.map(i => (i.menuItemId._id || i.menuItemId).toString());
+    
+    for (const oldItem of order.items) {
+      const oldItemIdStr = oldItem.menuItemId.toString();
+      if (!incomingItemIds.includes(oldItemIdStr)) {
+        // The item was deleted from the order. Refund its full quantity.
+        const menuDoc = await MenuItem.findById(oldItemIdStr);
+        if (menuDoc) {
+          menuDoc.stockQuantity += oldItem.quantity;
+          menuDoc.availabilityStatus = 'In Stock';
+          await menuDoc.save();
+        }
+      }
+    }
+
+    // 2. Process stock differences for remaining items
     for (const reqItem of items) {
       const menuItemId = reqItem.menuItemId._id || reqItem.menuItemId;
       const menuDoc = await MenuItem.findById(menuItemId);
       
       if (!menuDoc) return res.status(404).json({ message: 'Menu item not found' });
 
-      // Find the old quantity for this specific item in the original order
       const oldItem = order.items.find(i => i.menuItemId.toString() === menuItemId.toString());
       const oldQuantity = oldItem ? oldItem.quantity : 0;
       
-      // Calculate the difference (Positive = adding more items, Negative = removing items)
       const quantityDifference = reqItem.quantity - oldQuantity;
 
-      // Check if there is enough stock for an increase
       if (quantityDifference > 0 && menuDoc.stockQuantity < quantityDifference) {
         return res.status(400).json({ message: `Not enough stock for ${menuDoc.name} to increase order` });
       }
 
-      // Adjust stock based on the difference 
-      // (Subtracts if they added more, Adds back to stock if they reduced the order)
       menuDoc.stockQuantity -= quantityDifference;
 
-      // Update availability status
       if (menuDoc.stockQuantity <= 0) {
         menuDoc.availabilityStatus = 'Out of Stock';
       } else {
@@ -108,12 +118,10 @@ exports.updateOrder = async (req, res) => {
       }
 
       await menuDoc.save();
-
-      // Calculate the new grand total
       newTotal += (menuDoc.price * reqItem.quantity);
     }
 
-    // 2. Update the order array and total price
+    // 3. Update the order array and total price
     order.items = items.map(i => ({
        menuItemId: i.menuItemId._id || i.menuItemId,
        quantity: i.quantity
