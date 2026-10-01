@@ -29,7 +29,13 @@ const MenuItemCard = ({ item, onAddToCart }: { item: MenuItem; onAddToCart: (ite
   return (
     <View style={styles.card}>
       <Image 
-        source={{ uri: item.imageUrl ? `https://se2020-food-ordering-backend.onrender.com${item.imageUrl}` : 'https://via.placeholder.com/200' }} 
+        source={{ 
+          uri: item.imageUrl 
+            ? (item.imageUrl.startsWith('http') 
+                ? item.imageUrl 
+                : `https://se2020-food-ordering-backend.onrender.com${item.imageUrl.startsWith('/') ? '' : '/'}${item.imageUrl}`)
+            : 'https://via.placeholder.com/200' 
+        }} 
         style={styles.image} 
         resizeMode="cover" 
       />

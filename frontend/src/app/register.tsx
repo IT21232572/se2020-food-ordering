@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, TextInput, Text, StyleSheet, Alert, TouchableOpacity, Image } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import apiClient from '../api/client';
 
@@ -44,9 +44,20 @@ export default function RegisterScreen() {
         options={{ 
           title: 'Create Account',
           headerStyle: { backgroundColor: '#4A3022' },
-          headerTintColor: '#FFF'
+          headerTintColor: '#FFF',
+          headerShown: true,
         }} 
       />
+
+      {/* Logo added above the title */}
+      <View style={styles.logoContainer}>
+        <Image 
+          source={require('../../assets/logo.png')} 
+          style={styles.logo} 
+          resizeMode="contain" 
+        />
+      </View>
+
       <Text style={styles.title}>Sign Up</Text>
       
       <TextInput
@@ -83,6 +94,8 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#E8D8C8' },
+  logoContainer: { alignItems: 'center', marginBottom: 16 },
+  logo: { width: 90, height: 90, borderRadius: 20 },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: '#4A3022' },
   input: { borderWidth: 1, borderColor: '#dccfc1', padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: '#F5EFE6', color: '#4A3022' },
   registerBtn: { backgroundColor: '#4A3022', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 8 },

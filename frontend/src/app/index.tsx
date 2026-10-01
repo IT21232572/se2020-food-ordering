@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, TextInput, Text, StyleSheet, Alert, TouchableOpacity, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import apiClient from '../api/client';
@@ -15,14 +15,10 @@ export default function LoginScreen() {
       const response = await apiClient.post('/auth/login', { email, password });
       const token = response.data.token;
       
-      // Save JWT token
       await AsyncStorage.setItem('token', token);
       
-      // Decode the token to check the role
       const decodedToken: any = jwtDecode(token);
-      console.log("Decoded Token Data:", decodedToken);
       
-      // Route based on the role
       if (decodedToken.role === 'admin') {
         router.replace('/admin');
       } else {
@@ -39,10 +35,21 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Logo added above the title */}
+      <View style={styles.logoContainer}>
+        <Image 
+          source={require('../../assets/logo.png')} 
+          style={styles.logo} 
+          resizeMode="contain" 
+        />
+      </View>
+
       <Text style={styles.title}>Food Ordering App</Text>
+      
       <TextInput
         style={styles.input}
         placeholder="Email"
+        placeholderTextColor="#888"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -50,6 +57,7 @@ export default function LoginScreen() {
       <TextInput
         style={styles.input}
         placeholder="Password"
+        placeholderTextColor="#888"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -67,6 +75,8 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#E8D8C8' },
+  logoContainer: { alignItems: 'center', marginBottom: 16 },
+  logo: { width: 100, height: 100, borderRadius: 20 },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24, textAlign: 'center', color: '#4A3022' },
   input: { borderWidth: 1, borderColor: '#dccfc1', padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: '#F5EFE6', color: '#4A3022' },
   loginBtn: { backgroundColor: '#4A3022', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 8, marginBottom: 24 },

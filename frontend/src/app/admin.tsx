@@ -190,15 +190,19 @@ export default function AdminScreen() {
       <Stack.Screen 
         options={{
           title: 'Manage menu',
+          headerShown: true,
           headerStyle: { backgroundColor: '#4A3022' },
           headerTintColor: '#FFF',
+          headerTitleAlign: 'left', // Forces left alignment like the mockup
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity onPress={() => router.push('/admin-orders')} style={{ marginRight: 20 }}>
-                <Text style={{ fontWeight: 'bold', color: '#C8945A' }}>View orders</Text>
+                {/* Added fontSize: 15 */}
+                <Text style={{ fontWeight: 'bold', color: '#C8945A', fontSize: 15 }}>View orders</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleLogout} style={{ marginRight: 15 }}>
-                <Text style={{ fontWeight: 'bold', color: '#C8945A' }}>Logout</Text>
+                {/* Added fontSize: 15 */}
+                <Text style={{ fontWeight: 'bold', color: '#C8945A', fontSize: 15 }}>Logout</Text>
               </TouchableOpacity>
             </View>
           )

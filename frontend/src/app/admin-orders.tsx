@@ -7,10 +7,13 @@ import apiClient from '../api/client';
 interface Order {
   _id: string;
   status: string;
-  quantity: number;
+  totalPrice: number; // Added new totalPrice field
   createdAt: string;
   userId: { name: string; email: string } | null;
-  menuItemId: { name: string; price: number } | null;
+  items: Array<{      // Updated to handle the array of items
+    menuItemId: { name: string; price: number } | null;
+    quantity: number;
+  }>;
 }
 
 export default function AdminOrdersScreen() {
@@ -18,7 +21,6 @@ export default function AdminOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('All');
 
-  // Modal & Toast States
   const [modalVisible, setModalVisible] = useState(false);
   const [orderToComplete, setOrderToComplete] = useState<string | null>(null);
   const [toast, setToast] = useState<{title: string, message: string, type: 'success' | 'error'} | null>(null);
@@ -35,7 +37,8 @@ export default function AdminOrdersScreen() {
   const fetchOrders = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await apiClient.get('/orders/all', {
+      // FIXED: Changed from '/orders/all' to '/orders' to match the updated backend route
+      const response = await apiClient.get('/orders', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrders(response.data);
@@ -47,13 +50,11 @@ export default function AdminOrdersScreen() {
     }
   };
 
-  // Open the custom confirmation modal
   const initiateCompleteOrder = (orderId: string) => {
     setOrderToComplete(orderId);
     setModalVisible(true);
   };
 
-  // Process the API call after confirming
   const confirmCompleteOrder = async () => {
     if (!orderToComplete) return;
     setModalVisible(false);
@@ -95,11 +96,11 @@ export default function AdminOrdersScreen() {
         options={{ 
           title: 'Global Orders',
           headerStyle: { backgroundColor: '#4A3022' },
-          headerTintColor: '#FFF'
+          headerTintColor: '#FFF',
+          headerShown: true,
         }} 
       />
 
-      {/* Floating Custom Toast Alerts */}
       {toast && (
         <View style={[styles.toastContainer, toast.type === 'success' ? styles.alertSuccessBox : styles.alertErrorBox]}>
           <View style={{ flex: 1 }}>
@@ -114,7 +115,6 @@ export default function AdminOrdersScreen() {
         </View>
       )}
       
-      {/* Filter Bar */}
       <View style={styles.filterWrapper}>
         {['All', 'Pending', 'Completed'].map(status => (
           <TouchableOpacity 
@@ -136,8 +136,6 @@ export default function AdminOrdersScreen() {
         ListEmptyComponent={<Text style={styles.emptyText}>No {statusFilter.toLowerCase()} orders found.</Text>}
         renderItem={({ item }) => {
           const isCompleted = item.status === 'Completed';
-          const foodName = item.menuItemId?.name || 'Deleted Item';
-          const price = item.menuItemId?.price || 0;
           const customerName = item.userId?.name || 'Unknown User';
 
           return (
@@ -153,11 +151,21 @@ export default function AdminOrdersScreen() {
                 </Text>
               </View>
               
-              <Text style={styles.foodText}>{item.quantity}x {foodName}</Text>
-              <Text style={styles.priceText}>Total: Rs {price * item.quantity}</Text>
+              {/* FIXED: Loop through the array of items for the cart */}
+              <View style={styles.itemsContainer}>
+                {item.items && item.items.map((orderItem, index) => {
+                  const foodName = orderItem.menuItemId?.name || 'Deleted Item';
+                  return (
+                    <Text key={index} style={styles.foodText}>
+                      • {orderItem.quantity}x {foodName}
+                    </Text>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.priceText}>Total: Rs {item.totalPrice}</Text>
               <Text style={styles.dateText}>Ordered: {new Date(item.createdAt).toLocaleString()}</Text>
               
-              {/* Conditionally render the button ONLY if the order is not completed */}
               {!isCompleted && (
                 <TouchableOpacity 
                   style={[styles.btn, styles.btnComplete]} 
@@ -173,16 +181,11 @@ export default function AdminOrdersScreen() {
         }}
       />
 
-      {/* Custom Themed Confirmation Modal */}
       <Modal visible={modalVisible} animationType="fade" transparent={true}>
         <View style={styles.alertOverlay}>
           <View style={styles.confirmBox}>
-            
             <View style={styles.confirmHeader}>
-              {/* Tick removed from inside the circle */}
               <View style={styles.iconCircle}><Text style={styles.iconText}>✔️</Text></View>
-              
-              {/* Added flex: 1 to ensure the text wraps properly */}
               <View style={{ flex: 1 }}>
                 <Text style={styles.confirmTitle}>Complete order</Text>
                 <Text style={styles.confirmSubtitle}>Are you sure you want to mark this as completed?</Text>
@@ -190,23 +193,16 @@ export default function AdminOrdersScreen() {
             </View>
 
             <View style={styles.confirmBtnRow}>
-              <TouchableOpacity 
-                style={styles.confirmCancelBtn} 
-                onPress={() => setModalVisible(false)}
-              >
+              <TouchableOpacity style={styles.confirmCancelBtn} onPress={() => setModalVisible(false)}>
                 <Text style={styles.confirmCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.confirmOkBtn} 
-                onPress={confirmCompleteOrder}
-              >
+              <TouchableOpacity style={styles.confirmOkBtn} onPress={confirmCompleteOrder}>
                 <Text style={styles.confirmOkText}>Yes, complete</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
@@ -233,8 +229,9 @@ const styles = StyleSheet.create({
   statusPending: { backgroundColor: '#C8945A', color: '#4A3022' },
   statusCompleted: { backgroundColor: '#4A3022', color: '#FFF' },
   
-  foodText: { fontSize: 18, fontWeight: 'bold', color: '#4A3022', marginBottom: 4 },
-  priceText: { fontSize: 15, color: '#7A5C4A', marginBottom: 4 },
+  itemsContainer: { backgroundColor: '#E8D8C8', padding: 10, borderRadius: 6, marginBottom: 12 },
+  foodText: { fontSize: 15, color: '#4A3022', marginBottom: 4 },
+  priceText: { fontSize: 16, fontWeight: 'bold', color: '#4A3022', marginBottom: 4 },
   dateText: { fontSize: 12, color: '#7A5C4A', marginBottom: 12 },
   
   btn: { padding: 12, borderRadius: 6, alignItems: 'center', marginTop: 8 },
@@ -242,7 +239,6 @@ const styles = StyleSheet.create({
   btnText: { fontWeight: 'bold', fontSize: 14 },
   btnTextComplete: { color: '#FFF' },
 
-  // --- Confirmation Modal Styles ---
   alertOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   confirmBox: { width: '100%', maxWidth: 340, backgroundColor: '#F5EFE6', borderRadius: 16, padding: 20, elevation: 5 },
   confirmHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
@@ -256,15 +252,12 @@ const styles = StyleSheet.create({
   confirmOkBtn: { flex: 1, backgroundColor: '#4A3022', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   confirmOkText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
 
-  // --- Toast Alert Styles ---
   toastContainer: { position: 'absolute', top: 20, left: 16, right: 16, padding: 16, borderRadius: 8, zIndex: 1000, flexDirection: 'row', alignItems: 'center', elevation: 6 },
   toastTitle: { fontWeight: 'bold', fontSize: 15 },
   toastMessage: { fontSize: 13, marginTop: 2 },
-  
   alertSuccessBox: { backgroundColor: '#F5EFE6' },
   alertSuccessTitle: { color: '#4A3022' },
   alertSuccessText: { color: '#7A5C4A' },
-
   alertErrorBox: { backgroundColor: '#4A3022' },
   alertErrorTitle: { color: '#F5EFE6' },
   alertErrorText: { color: '#dccfc1' },

@@ -82,10 +82,15 @@ const OrderCard = ({ item, onUpdate, onDelete }: { item: any, onUpdate: any, onD
           {isEditing ? (
             <>
               <TouchableOpacity 
-                style={[styles.saveBtn, editItems.length === 0 && { backgroundColor: '#AFA49B' }]} 
-                disabled={editItems.length === 0}
+                style={styles.saveBtn} 
                 onPress={() => { 
-                  onUpdate(item._id, editItems); 
+                  if (editItems.length === 0) {
+                    // If all items are removed, trigger the cancel confirmation modal
+                    onDelete(item._id);
+                  } else {
+                    // Otherwise, update the order normally
+                    onUpdate(item._id, editItems); 
+                  }
                   setIsEditing(false); 
                 }}
               >
