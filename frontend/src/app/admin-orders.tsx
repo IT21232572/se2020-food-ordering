@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Modal } from 'react-native';
 import { Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../api/client';
@@ -18,9 +18,19 @@ export default function AdminOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('All');
 
+  // Modal & Toast States
+  const [modalVisible, setModalVisible] = useState(false);
+  const [orderToComplete, setOrderToComplete] = useState<string | null>(null);
+  const [toast, setToast] = useState<{title: string, message: string, type: 'success' | 'error'} | null>(null);
+
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  const showToast = (title: string, message: string, type: 'success' | 'error') => {
+    setToast({ title, message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchOrders = async () => {
     try {
@@ -31,39 +41,48 @@ export default function AdminOrdersScreen() {
       setOrders(response.data);
     } catch (error: any) {
       console.log("=== FETCH ORDERS ERROR ===", error?.response?.data || error.message);
-      Alert.alert('Error', error?.response?.data?.message || 'Could not load orders.');
+      showToast('Error', error?.response?.data?.message || 'Could not load orders.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateStatus = async (orderId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'Pending' ? 'Completed' : 'Pending';
-    
+  // Open the custom confirmation modal
+  const initiateCompleteOrder = (orderId: string) => {
+    setOrderToComplete(orderId);
+    setModalVisible(true);
+  };
+
+  // Process the API call after confirming
+  const confirmCompleteOrder = async () => {
+    if (!orderToComplete) return;
+    setModalVisible(false);
+
     try {
       const token = await AsyncStorage.getItem('token');
       await apiClient.put(
-        `/orders/${orderId}/status`,
-        { status: newStatus },
+        `/orders/${orderToComplete}/status`,
+        { status: 'Completed' },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      Alert.alert('Success', `Order marked as ${newStatus}`);
+      showToast('Success', 'Order marked as Completed', 'success');
       fetchOrders(); 
     } catch (error: any) {
-      Alert.alert('Update Failed', error?.response?.data?.message || 'Check your connection.');
+      showToast('Update Failed', error?.response?.data?.message || 'Check your connection.', 'error');
+    } finally {
+      setOrderToComplete(null);
     }
   };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007bff" />
+        <ActivityIndicator size="large" color="#4A3022" />
       </View>
     );
   }
 
-  // Filter the orders before passing them to the FlatList
   const filteredOrders = orders.filter(order => {
     if (statusFilter === 'All') return true;
     const currentStatus = order.status || 'Pending';
@@ -79,6 +98,21 @@ export default function AdminOrdersScreen() {
           headerTintColor: '#FFF'
         }} 
       />
+
+      {/* Floating Custom Toast Alerts */}
+      {toast && (
+        <View style={[styles.toastContainer, toast.type === 'success' ? styles.alertSuccessBox : styles.alertErrorBox]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.toastTitle, toast.type === 'success' ? styles.alertSuccessTitle : styles.alertErrorTitle]}>{toast.title}</Text>
+            <Text style={[styles.toastMessage, toast.type === 'success' ? styles.alertSuccessText : styles.alertErrorText]}>{toast.message}</Text>
+          </View>
+          {toast.type === 'error' && (
+            <TouchableOpacity onPress={() => setToast(null)}>
+              <Text style={styles.alertErrorActionText}>Dismiss</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       
       {/* Filter Bar */}
       <View style={styles.filterWrapper}>
@@ -109,7 +143,6 @@ export default function AdminOrdersScreen() {
           return (
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                {/* Wrap the Customer Name and Order ID together */}
                 <View style={styles.customerInfo}>
                   <Text style={styles.customerName}>Customer: {customerName}</Text>
                   <Text style={styles.orderId}>Order ID: {item._id}</Text>
@@ -124,36 +157,70 @@ export default function AdminOrdersScreen() {
               <Text style={styles.priceText}>Total: Rs {price * item.quantity}</Text>
               <Text style={styles.dateText}>Ordered: {new Date(item.createdAt).toLocaleString()}</Text>
               
-              <TouchableOpacity 
-                style={[styles.btn, isCompleted ? styles.btnUndo : styles.btnComplete]} 
-                onPress={() => handleUpdateStatus(item._id, item.status || 'Pending')}
-              >
-                {/* Add the dynamic text styles here */}
-                <Text style={[styles.btnText, isCompleted ? styles.btnTextUndo : styles.btnTextComplete]}>
-                  {isCompleted ? 'Undo (Mark Pending)' : 'Mark as Completed'}
-                </Text>
-              </TouchableOpacity>
+              {/* Conditionally render the button ONLY if the order is not completed */}
+              {!isCompleted && (
+                <TouchableOpacity 
+                  style={[styles.btn, styles.btnComplete]} 
+                  onPress={() => initiateCompleteOrder(item._id)}
+                >
+                  <Text style={[styles.btnText, styles.btnTextComplete]}>
+                    Mark as Completed
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           );
         }}
       />
+
+      {/* Custom Themed Confirmation Modal */}
+      <Modal visible={modalVisible} animationType="fade" transparent={true}>
+        <View style={styles.alertOverlay}>
+          <View style={styles.confirmBox}>
+            
+            <View style={styles.confirmHeader}>
+              {/* Tick removed from inside the circle */}
+              <View style={styles.iconCircle}><Text style={styles.iconText}>✔️</Text></View>
+              
+              {/* Added flex: 1 to ensure the text wraps properly */}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.confirmTitle}>Complete order</Text>
+                <Text style={styles.confirmSubtitle}>Are you sure you want to mark this as completed?</Text>
+              </View>
+            </View>
+
+            <View style={styles.confirmBtnRow}>
+              <TouchableOpacity 
+                style={styles.confirmCancelBtn} 
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmOkBtn} 
+                onPress={confirmCompleteOrder}
+              >
+                <Text style={styles.confirmOkText}>Yes, complete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Backgrounds matching the mockup
   container: { flex: 1, backgroundColor: '#E8D8C8' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
-  // Filter Bar
   filterWrapper: { flexDirection: 'row', backgroundColor: '#E8D8C8', padding: 12, elevation: 0, justifyContent: 'space-around', marginBottom: 8 },
   filterBtn: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#AFA49B' },
   filterBtnActive: { backgroundColor: '#C8945A' },
   filterText: { fontSize: 14, fontWeight: 'bold', color: '#4A3022' },
   filterTextActive: { color: '#4A3022' },
   
-  // List & Cards
   list: { padding: 16 },
   emptyText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#4A3022' },
   card: { backgroundColor: '#F5EFE6', padding: 16, borderRadius: 8, marginBottom: 12, elevation: 2 },
@@ -162,21 +229,44 @@ const styles = StyleSheet.create({
   customerName: { fontSize: 16, fontWeight: 'bold', color: '#4A3022' },
   orderId: { fontSize: 12, color: '#7A5C4A', marginTop: 2 },
   
-  // Status Badges (Pill Shape)
   statusBadge: { paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20, fontWeight: 'bold', overflow: 'hidden', fontSize: 13, textAlign: 'center' },
   statusPending: { backgroundColor: '#C8945A', color: '#4A3022' },
   statusCompleted: { backgroundColor: '#4A3022', color: '#FFF' },
   
-  // Text Colors
   foodText: { fontSize: 18, fontWeight: 'bold', color: '#4A3022', marginBottom: 4 },
   priceText: { fontSize: 15, color: '#7A5C4A', marginBottom: 4 },
   dateText: { fontSize: 12, color: '#7A5C4A', marginBottom: 12 },
   
-  // Action Buttons
-  btn: { padding: 12, borderRadius: 6, alignItems: 'center' },
-  btnComplete: { backgroundColor: '#4A3022' }, // Dark brown for primary action
-  btnUndo: { backgroundColor: '#C8945A' }, // Muted gold for undo
+  btn: { padding: 12, borderRadius: 6, alignItems: 'center', marginTop: 8 },
+  btnComplete: { backgroundColor: '#4A3022' },
   btnText: { fontWeight: 'bold', fontSize: 14 },
   btnTextComplete: { color: '#FFF' },
-  btnTextUndo: { color: '#4A3022' }
+
+  // --- Confirmation Modal Styles ---
+  alertOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  confirmBox: { width: '100%', maxWidth: 340, backgroundColor: '#F5EFE6', borderRadius: 16, padding: 20, elevation: 5 },
+  confirmHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#C8945A', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  iconText: { fontSize: 18, color: '#4A3022' },
+  confirmTitle: { fontSize: 18, fontWeight: 'bold', color: '#4A3022' },
+  confirmSubtitle: { fontSize: 14, color: '#7A5C4A', marginTop: 2 },
+  confirmBtnRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  confirmCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dccfc1', alignItems: 'center' },
+  confirmCancelText: { color: '#7A5C4A', fontWeight: 'bold', fontSize: 15 },
+  confirmOkBtn: { flex: 1, backgroundColor: '#4A3022', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  confirmOkText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+
+  // --- Toast Alert Styles ---
+  toastContainer: { position: 'absolute', top: 20, left: 16, right: 16, padding: 16, borderRadius: 8, zIndex: 1000, flexDirection: 'row', alignItems: 'center', elevation: 6 },
+  toastTitle: { fontWeight: 'bold', fontSize: 15 },
+  toastMessage: { fontSize: 13, marginTop: 2 },
+  
+  alertSuccessBox: { backgroundColor: '#F5EFE6' },
+  alertSuccessTitle: { color: '#4A3022' },
+  alertSuccessText: { color: '#7A5C4A' },
+
+  alertErrorBox: { backgroundColor: '#4A3022' },
+  alertErrorTitle: { color: '#F5EFE6' },
+  alertErrorText: { color: '#dccfc1' },
+  alertErrorActionText: { color: '#C8945A', fontWeight: 'bold', fontSize: 14, marginLeft: 16 }
 });

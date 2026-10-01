@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import { Stack } from 'expo-router';
@@ -83,9 +83,19 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('All');
 
+  // Modal & Toast States
+  const [modalVisible, setModalVisible] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+  const [toast, setToast] = useState<{title: string, message: string, type: 'success' | 'error'} | null>(null);
+
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  const showToast = (title: string, message: string, type: 'success' | 'error') => {
+    setToast({ title, message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchOrders = async () => {
     try {
@@ -100,30 +110,35 @@ export default function HistoryScreen() {
       });
       setOrders(response.data);
     } catch (error) {
-      Alert.alert('Error', 'Could not load your order history.');
+      showToast('Error', 'Could not load your order history.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = (orderId: string) => {
-    Alert.alert('Cancel Order', 'Are you sure you want to cancel this order?', [
-      { text: 'No', style: 'cancel' },
-      {
-        text: 'Yes',
-        onPress: async () => {
-          try {
-            const token = await AsyncStorage.getItem('token');
-            await apiClient.delete(`/orders/${orderId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            fetchOrders(); 
-          } catch (error) {
-            Alert.alert('Error', 'Could not cancel the order.');
-          }
-        }
-      }
-    ]);
+  // Opens the custom confirmation modal
+  const initiateDelete = (orderId: string) => {
+    setOrderToDelete(orderId);
+    setModalVisible(true);
+  };
+
+  // Processes the API call after confirming in the custom modal
+  const confirmDelete = async () => {
+    if (!orderToDelete) return;
+    setModalVisible(false);
+    
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await apiClient.delete(`/orders/${orderToDelete}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showToast('Order cancelled', 'Your order has been successfully cancelled.', 'success');
+      fetchOrders(); 
+    } catch (error) {
+      showToast('Error', 'Could not cancel the order.', 'error');
+    } finally {
+      setOrderToDelete(null);
+    }
   };
 
   const handleUpdate = async (orderId: string, newQuantity: number) => {
@@ -134,21 +149,21 @@ export default function HistoryScreen() {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      showToast('Order updated', 'Your order quantity has been updated.', 'success');
       fetchOrders(); 
     } catch (error) {
-      Alert.alert('Error', 'Could not update the order.');
+      showToast('Error', 'Could not update the order.', 'error');
     }
   };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007bff" />
+        <ActivityIndicator size="large" color="#4A3022" />
       </View>
     );
   }
 
-  // Filter the orders based on the selected status
   const filteredOrders = orders.filter((order: any) => {
     if (statusFilter === 'All') return true;
     const currentStatus = order.status || 'Pending';
@@ -165,6 +180,21 @@ export default function HistoryScreen() {
         }} 
       />
       
+      {/* Floating Custom Toast Alerts */}
+      {toast && (
+        <View style={[styles.toastContainer, toast.type === 'success' ? styles.alertSuccessBox : styles.alertErrorBox]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.toastTitle, toast.type === 'success' ? styles.alertSuccessTitle : styles.alertErrorTitle]}>{toast.title}</Text>
+            <Text style={[styles.toastMessage, toast.type === 'success' ? styles.alertSuccessText : styles.alertErrorText]}>{toast.message}</Text>
+          </View>
+          {toast.type === 'error' && (
+            <TouchableOpacity onPress={() => setToast(null)}>
+              <Text style={styles.alertErrorActionText}>Dismiss</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       {/* Filter Bar */}
       <View style={styles.filterWrapper}>
         {['All', 'Pending', 'Completed'].map(status => (
@@ -183,10 +213,42 @@ export default function HistoryScreen() {
       <FlatList
         data={filteredOrders}
         keyExtractor={(item: any) => item._id}
-        renderItem={({ item }) => <OrderCard item={item} onUpdate={handleUpdate} onDelete={handleDelete} />}
+        renderItem={({ item }) => <OrderCard item={item} onUpdate={handleUpdate} onDelete={initiateDelete} />}
         contentContainerStyle={styles.list}
         ListEmptyComponent={<Text style={styles.empty}>No {statusFilter.toLowerCase()} orders found.</Text>}
       />
+
+      {/* Custom Themed Confirmation Modal for Cancelling Orders */}
+      <Modal visible={modalVisible} animationType="fade" transparent={true}>
+        <View style={styles.alertOverlay}>
+          <View style={styles.confirmBox}>
+            
+            <View style={styles.confirmHeader}>
+              <View style={styles.iconCircle}><Text style={styles.iconText}>⚠️</Text></View>
+              <View>
+                <Text style={styles.confirmTitle}>Cancel order</Text>
+                <Text style={styles.confirmSubtitle}>Are you sure you want to cancel?</Text>
+              </View>
+            </View>
+
+            <View style={styles.confirmBtnRow}>
+              <TouchableOpacity 
+                style={styles.confirmCancelBtn} 
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.confirmCancelText}>No, keep it</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmOkBtn} 
+                onPress={confirmDelete}
+              >
+                <Text style={styles.confirmOkText}>Yes, cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -234,8 +296,37 @@ const styles = StyleSheet.create({
   // Empty State & Locked Text
   empty: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#4A3022' },
   lockedText: { color: '#deaf79', fontSize: 14, fontStyle: 'italic', marginTop: 8 },
+  
   // Status Badges matching the mockup
   statusBadge: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20, fontWeight: 'bold', overflow: 'hidden', marginTop: 4, marginBottom: 8, fontSize: 14 },
   statusPending: { backgroundColor: '#C8945A', color: '#4A3022' },
   statusCompleted: { backgroundColor: '#4A3022', color: '#FFF' },
+
+  // --- Confirmation Modal Styles ---
+  alertOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  confirmBox: { width: '100%', maxWidth: 340, backgroundColor: '#F5EFE6', borderRadius: 16, padding: 20, elevation: 5 },
+  confirmHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#C8945A', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  iconText: { fontSize: 18, color: '#4A3022' },
+  confirmTitle: { fontSize: 18, fontWeight: 'bold', color: '#4A3022' },
+  confirmSubtitle: { fontSize: 14, color: '#7A5C4A', marginTop: 2 },
+  confirmBtnRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  confirmCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dccfc1', alignItems: 'center' },
+  confirmCancelText: { color: '#7A5C4A', fontWeight: 'bold', fontSize: 15 },
+  confirmOkBtn: { flex: 1, backgroundColor: '#4A3022', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  confirmOkText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+
+  // --- Toast Alert Styles ---
+  toastContainer: { position: 'absolute', top: 20, left: 16, right: 16, padding: 16, borderRadius: 8, zIndex: 1000, flexDirection: 'row', alignItems: 'center', elevation: 6 },
+  toastTitle: { fontWeight: 'bold', fontSize: 15 },
+  toastMessage: { fontSize: 13, marginTop: 2 },
+  
+  alertSuccessBox: { backgroundColor: '#F5EFE6' },
+  alertSuccessTitle: { color: '#4A3022' },
+  alertSuccessText: { color: '#7A5C4A' },
+
+  alertErrorBox: { backgroundColor: '#4A3022' },
+  alertErrorTitle: { color: '#F5EFE6' },
+  alertErrorText: { color: '#dccfc1' },
+  alertErrorActionText: { color: '#C8945A', fontWeight: 'bold', fontSize: 14, marginLeft: 16 }
 });

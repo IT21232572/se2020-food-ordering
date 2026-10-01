@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity, Image, ScrollView, Button } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Image, ScrollView, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import { Stack, useRouter, useFocusEffect } from 'expo-router';
@@ -23,21 +23,8 @@ const MenuItemCard = ({ item, onOrder }: { item: MenuItem; onOrder: (item: MenuI
   const decrease = () => { if (quantity > 1) setQuantity(quantity - 1); };
 
   const handleOrderPress = () => {
-    const totalPrice = item.price * quantity;
-    Alert.alert(
-      'Confirm Order',
-      `Order ${quantity}x ${item.name}\nTotal Price: Rs ${totalPrice}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'OK',
-          onPress: () => {
-            onOrder(item, quantity);
-            setQuantity(1); 
-          },
-        },
-      ]
-    );
+    // Just pass the request up to the main screen to open the custom modal
+    onOrder(item, quantity);
   };
 
   return (
@@ -47,7 +34,7 @@ const MenuItemCard = ({ item, onOrder }: { item: MenuItem; onOrder: (item: MenuI
         style={styles.image} 
         resizeMode="cover" 
       />
-      
+
       <View style={styles.cardContent}>
         <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
         <Text style={styles.details}>{item.category}</Text>
@@ -89,12 +76,15 @@ export default function MenuScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All'); 
 
+  // Modal & Alert States
+  const [modalVisible, setModalVisible] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState<{ item: MenuItem; qty: number } | null>(null);
+  const [toast, setToast] = useState<{title: string, message: string, type: 'success' | 'error'} | null>(null);
+
   const router = useRouter();
 
   const handleLogout = async () => {
-    // Clear the token from storage
     await AsyncStorage.removeItem('token');
-    // Send the user back to the login screen
     router.replace('/');
   };
 
@@ -109,17 +99,32 @@ export default function MenuScreen() {
       const response = await apiClient.get('/menu');
       setMenuItems(response.data);
     } catch (error) {
-      Alert.alert('Error', 'Could not load the menu from the server.');
+      showToast('Error', 'Could not load the menu from the server.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOrder = async (menuItem: MenuItem, selectedQuantity: number) => {
+  const showToast = (title: string, message: string, type: 'success' | 'error') => {
+    setToast({ title, message, type });
+    setTimeout(() => setToast(null), 3500); // Auto-hide after 3.5s
+  };
+
+  // Opens the confirmation modal instead of standard Alert
+  const initiateOrder = (menuItem: MenuItem, selectedQuantity: number) => {
+    setPendingOrder({ item: menuItem, qty: selectedQuantity });
+    setModalVisible(true);
+  };
+
+  // Processes the API call after confirming in the custom modal
+  const processOrder = async () => {
+    if (!pendingOrder) return;
+    setModalVisible(false);
+
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) {
-        Alert.alert('Auth Error', 'You must be logged in to order.');
+        showToast('Auth Error', 'You must be logged in to order.', 'error');
         return;
       }
 
@@ -130,41 +135,37 @@ export default function MenuScreen() {
         '/orders',
         {
           userId: currentUserId,
-          menuItemId: menuItem._id,
-          quantity: selectedQuantity,
+          menuItemId: pendingOrder.item._id,
+          quantity: pendingOrder.qty,
         },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      Alert.alert('Success!', `You successfully ordered ${selectedQuantity} ${menuItem.name}.`);
+      showToast('Order placed', `${pendingOrder.qty}x ${pendingOrder.item.name} is on its way.`, 'success');
       fetchMenu();
     } catch (error: any) {
-      Alert.alert('Order Failed', error?.response?.data?.message || 'Check your connection.');
+      showToast("Couldn't place order", error?.response?.data?.message || 'Check your connection and retry.', 'error');
+    } finally {
+      setPendingOrder(null);
     }
   };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#4A3022" />
       </View>
     );
   }
 
-  // 1. Extract unique categories from the fetched menu items
   const categories = ['All', ...Array.from(new Set(menuItems.map(item => item.category)))];
-
-  // 2. Filter the items based on the selected category pill
   const filteredMenu = selectedCategory === 'All' 
     ? menuItems 
     : menuItems.filter(item => item.category === selectedCategory);
 
   return (
     <View style={styles.container}>
-
-        <Stack.Screen 
+      <Stack.Screen 
         options={{
           title: 'Menu',
           headerStyle: { backgroundColor: '#4A3022' },
@@ -181,7 +182,23 @@ export default function MenuScreen() {
           )
         }} 
       />
-      {/* 3. Horizontal Category Filter Bar */}
+
+      {/* Floating Custom Toast Alerts */}
+      {toast && (
+        <View style={[styles.toastContainer, toast.type === 'success' ? styles.alertSuccessBox : styles.alertErrorBox]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.toastTitle, toast.type === 'success' ? styles.alertSuccessTitle : styles.alertErrorTitle]}>{toast.title}</Text>
+            <Text style={[styles.toastMessage, toast.type === 'success' ? styles.alertSuccessText : styles.alertErrorText]}>{toast.message}</Text>
+          </View>
+          {toast.type === 'error' && (
+            <TouchableOpacity onPress={() => setToast(null)}>
+              <Text style={styles.alertErrorActionText}>Dismiss</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Filter Bar */}
       <View style={styles.filterWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryContainer}>
           {categories.map((category, index) => (
@@ -198,58 +215,134 @@ export default function MenuScreen() {
         </ScrollView>
       </View>
 
-      {/* 4. Pass the filteredMenu to the FlatList instead of the raw menuItems */}
       <FlatList
         data={filteredMenu}
         keyExtractor={(item) => item._id}
-        renderItem={({ item }) => <MenuItemCard item={item} onOrder={handleOrder} />}
+        renderItem={({ item }) => <MenuItemCard item={item} onOrder={initiateOrder} />}
         numColumns={2}
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.list}
       />
+
+      {/* Custom Themed Confirmation Modal */}
+      <Modal visible={modalVisible} animationType="fade" transparent={true}>
+        <View style={styles.alertOverlay}>
+          <View style={styles.confirmBox}>
+            
+            <View style={styles.confirmHeader}>
+              <View style={styles.iconCircle}><Text style={styles.iconText}>📄</Text></View>
+              <View>
+                <Text style={styles.confirmTitle}>Confirm order</Text>
+                <Text style={styles.confirmSubtitle}>Review before placing</Text>
+              </View>
+            </View>
+
+            {pendingOrder && (
+              <View style={styles.receiptBox}>
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptItemText}>{pendingOrder.item.name}</Text>
+                  <Text style={styles.receiptQtyText}>{pendingOrder.qty}x</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptTotalLabel}>Total</Text>
+                  <Text style={styles.receiptTotalValue}>Rs {pendingOrder.item.price * pendingOrder.qty}</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.confirmBtnRow}>
+              <TouchableOpacity 
+                style={styles.confirmCancelBtn} 
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmOkBtn} 
+                onPress={processOrder}
+              >
+                <Text style={styles.confirmOkText}>Place order</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Backgrounds matching the mockup
   container: { flex: 1, backgroundColor: '#E8D8C8' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
-  // Filter Bar
+
   filterWrapper: { backgroundColor: '#E8D8C8', paddingVertical: 10, elevation: 0 },
   categoryContainer: { paddingHorizontal: 16, alignItems: 'center' },
-  categoryBtn: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, backgroundColor: '#AFA49B', marginRight: 10 }, // Taupe/Grey inactive
-  categoryBtnActive: { backgroundColor: '#C8945A' }, // Gold active
+  categoryBtn: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, backgroundColor: '#AFA49B', marginRight: 10 },
+  categoryBtnActive: { backgroundColor: '#C8945A' },
   categoryText: { fontSize: 14, fontWeight: 'bold', color: '#4A3022' },
-  categoryTextActive: { color: '#4A3022' }, // Text stays dark brown when active
-  
-  // Grid & Cards
+  categoryTextActive: { color: '#4A3022' },
+
   list: { padding: 8 },
   columnWrapper: { justifyContent: 'space-between', paddingHorizontal: 4 },
   card: { backgroundColor: '#F5EFE6', borderRadius: 12, elevation: 2, flex: 1, margin: 8, overflow: 'hidden', maxWidth: '46%' },
   image: { width: '100%', height: 130, backgroundColor: '#dccfc1' },
   cardContent: { padding: 12, alignItems: 'center' },
-  
-  // Text Colors
+
   name: { fontSize: 15, fontWeight: 'bold', marginBottom: 4, textAlign: 'center', minHeight: 40, textAlignVertical: 'center', color: '#4A3022' },
   details: { fontSize: 12, color: '#7A5C4A', marginBottom: 4, textAlign: 'center' },
   price: { fontSize: 16, fontWeight: 'bold', color: '#4A3022', marginBottom: 6 },
   stock: { fontSize: 11, color: '#7A5C4A', fontWeight: '600', marginBottom: 12, textAlign: 'center' },
-  outOfStock: { color: '#7A5C4A' }, // Reverted from red to muted grey/brown to match mockup
-  
-  // Quantity Selector
+  outOfStock: { color: '#7A5C4A' },
+
   quantityContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, justifyContent: 'center' },
   qtyBtn: { backgroundColor: '#C8945A', width: 28, height: 28, justifyContent: 'center', alignItems: 'center', borderRadius: 14 },
   qtyText: { fontSize: 18, fontWeight: 'bold', color: '#4A3022', marginTop: -2 },
   qtyLabel: { fontSize: 15, fontWeight: 'bold', color: '#4A3022', marginHorizontal: 12 },
-  
-  // Custom Order Button
+
   buttonContainer: { width: '100%' },
   orderBtn: { paddingVertical: 10, borderRadius: 8, alignItems: 'center', width: '100%' },
   orderBtnActive: { backgroundColor: '#4A3022' },
-  orderBtnDisabled: { backgroundColor: '#AFA49B' }, // Grey background when out of stock
+  orderBtnDisabled: { backgroundColor: '#AFA49B' },
   orderBtnText: { fontWeight: 'bold', fontSize: 14 },
   orderBtnTextActive: { color: '#FFF' },
-  orderBtnTextDisabled: { color: '#4A3022' }
+  orderBtnTextDisabled: { color: '#4A3022' },
+
+  // --- Confirmation Modal Styles ---
+  alertOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  confirmBox: { width: '100%', maxWidth: 340, backgroundColor: '#F5EFE6', borderRadius: 16, padding: 20, elevation: 5 },
+  confirmHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#C8945A', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  iconText: { fontSize: 18, color: '#4A3022' },
+  confirmTitle: { fontSize: 18, fontWeight: 'bold', color: '#4A3022' },
+  confirmSubtitle: { fontSize: 14, color: '#7A5C4A', marginTop: 2 },
+  
+  receiptBox: { backgroundColor: '#E8D8C8', borderRadius: 12, padding: 16, marginBottom: 20 },
+  receiptRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  receiptItemText: { fontSize: 16, color: '#4A3022' },
+  receiptQtyText: { fontSize: 16, color: '#4A3022', textAlign: 'right' },
+  divider: { height: 1, backgroundColor: '#dccfc1', marginVertical: 12 },
+  receiptTotalLabel: { fontSize: 16, color: '#4A3022' },
+  receiptTotalValue: { fontSize: 16, color: '#4A3022', fontWeight: 'bold' },
+
+  confirmBtnRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  confirmCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dccfc1', alignItems: 'center' },
+  confirmCancelText: { color: '#7A5C4A', fontWeight: 'bold', fontSize: 15 },
+  confirmOkBtn: { flex: 1, backgroundColor: '#4A3022', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  confirmOkText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+
+  // --- Toast Alert Styles ---
+  toastContainer: { position: 'absolute', top: 20, left: 16, right: 16, padding: 16, borderRadius: 8, zIndex: 1000, flexDirection: 'row', alignItems: 'center', elevation: 6 },
+  toastTitle: { fontWeight: 'bold', fontSize: 15 },
+  toastMessage: { fontSize: 13, marginTop: 2 },
+  
+  alertSuccessBox: { backgroundColor: '#F5EFE6' },
+  alertSuccessTitle: { color: '#4A3022' },
+  alertSuccessText: { color: '#7A5C4A' },
+
+  alertErrorBox: { backgroundColor: '#4A3022' },
+  alertErrorTitle: { color: '#F5EFE6' },
+  alertErrorText: { color: '#dccfc1' },
+  alertErrorActionText: { color: '#C8945A', fontWeight: 'bold', fontSize: 14, marginLeft: 16 }
 });

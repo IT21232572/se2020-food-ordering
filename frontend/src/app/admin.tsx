@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, Alert, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,8 +20,13 @@ export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   
-  // Modal State
-  const [modalVisible, setModalVisible] = useState(false);
+  // Modal States
+  const [modalVisible, setModalVisible] = useState(false); // For the Add/Edit Form
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false); // For Delete Confirmation
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  // Toast State
+  const [toast, setToast] = useState<{title: string, message: string, type: 'success' | 'error'} | null>(null);
 
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -35,12 +40,17 @@ export default function AdminScreen() {
     fetchMenu();
   }, []);
 
+  const showToast = (title: string, message: string, type: 'success' | 'error') => {
+    setToast({ title, message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
   const fetchMenu = async () => {
     try {
       const response = await apiClient.get('/menu');
       setMenuItems(response.data);
     } catch (error) {
-      Alert.alert('Error', 'Could not load the menu.');
+      showToast('Error', 'Could not load the menu.', 'error');
     } finally {
       setLoading(false);
     }
@@ -91,7 +101,7 @@ export default function AdminScreen() {
 
   const handleSave = async () => {
     if (!name || !price || !category || !stockQuantity) {
-      Alert.alert('Error', 'Please fill in all required fields.');
+      showToast('Error', 'Please fill in all required fields.', 'error');
       return;
     }
 
@@ -128,45 +138,47 @@ export default function AdminScreen() {
 
       if (editingId) {
         await apiClient.put(`/menu/${editingId}`, formData, config);
-        Alert.alert('Success', 'Item updated successfully.');
+        showToast('Success', 'Item updated successfully.', 'success');
       } else {
         await apiClient.post('/menu', formData, config);
-        Alert.alert('Success', 'New item added successfully.');
+        showToast('Success', 'New item added successfully.', 'success');
       }
       
       resetForm();
       fetchMenu();
     } catch (error: any) {
       console.log("=== AXIOS UPLOAD ERROR ===", error?.response?.data || error.message || error);
-      Alert.alert('Save Failed', 'Could not save the item. Check your terminal logs.');
+      showToast('Save Failed', 'Could not save the item.', 'error');
     }
   };
 
-  const handleDelete = (id: string) => {
-    Alert.alert('Delete Item', 'Are you sure you want to permanently delete this food item?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const token = await AsyncStorage.getItem('token');
-            await apiClient.delete(`/menu/${id}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            fetchMenu();
-          } catch (error: any) {
-            Alert.alert('Delete Failed', error?.response?.data?.message || 'Could not delete the item.');
-          }
-        }
-      }
-    ]);
+  const initiateDelete = (id: string) => {
+    setItemToDelete(id);
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setDeleteModalVisible(false);
+    
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await apiClient.delete(`/menu/${itemToDelete}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showToast('Item Deleted', 'The food item was successfully removed.', 'success');
+      fetchMenu();
+    } catch (error: any) {
+      showToast('Delete Failed', error?.response?.data?.message || 'Could not delete the item.', 'error');
+    } finally {
+      setItemToDelete(null);
+    }
   };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007bff" />
+        <ActivityIndicator size="large" color="#4A3022" />
       </View>
     );
   }
@@ -192,6 +204,22 @@ export default function AdminScreen() {
           )
         }} 
       />
+
+      {/* Floating Custom Toast Alerts */}
+      {toast && (
+        <View style={[styles.toastContainer, toast.type === 'success' ? styles.alertSuccessBox : styles.alertErrorBox]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.toastTitle, toast.type === 'success' ? styles.alertSuccessTitle : styles.alertErrorTitle]}>{toast.title}</Text>
+            <Text style={[styles.toastMessage, toast.type === 'success' ? styles.alertSuccessText : styles.alertErrorText]}>{toast.message}</Text>
+          </View>
+          {toast.type === 'error' && (
+            <TouchableOpacity onPress={() => setToast(null)}>
+              <Text style={styles.alertErrorActionText}>Dismiss</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       <View style={styles.filterWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryContainer}>
           {categories.map((cat, index) => (
@@ -225,11 +253,9 @@ export default function AdminScreen() {
             </View>
             <View style={styles.actionButtons}>
               <TouchableOpacity style={styles.editBtn} onPress={() => handleEditClick(item)}>
-                {/* Changed to editBtnText */}
                 <Text style={styles.editBtnText}>Edit</Text> 
               </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item._id)}>
-                {/* Changed to deleteBtnText */}
+              <TouchableOpacity style={styles.deleteBtn} onPress={() => initiateDelete(item._id)}>
                 <Text style={styles.deleteBtnText}>Delete</Text> 
               </TouchableOpacity>
             </View>
@@ -242,26 +268,26 @@ export default function AdminScreen() {
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
 
-      {/* Form Modal */}
+      {/* Form Modal for Add/Edit */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.formContainer}>
             <Text style={styles.sectionTitle}>{editingId ? 'Edit Menu Item' : 'Add New Menu Item'}</Text>
             
-            <TextInput style={styles.input} placeholder="Food Name" value={name} onChangeText={setName} />
+            <TextInput style={styles.input} placeholder="Food Name" placeholderTextColor="#888" value={name} onChangeText={setName} />
             <View style={styles.row}>
-              <TextInput style={[styles.input, styles.halfInput]} placeholder="Price (Rs)" value={price} onChangeText={setPrice} keyboardType="numeric" />
-              <TextInput style={[styles.input, styles.halfInput]} placeholder="Stock Qty" value={stockQuantity} onChangeText={setStockQuantity} keyboardType="numeric" />
+              <TextInput style={[styles.input, styles.halfInput]} placeholder="Price (Rs)" placeholderTextColor="#888" value={price} onChangeText={setPrice} keyboardType="numeric" />
+              <TextInput style={[styles.input, styles.halfInput]} placeholder="Stock Qty" placeholderTextColor="#888" value={stockQuantity} onChangeText={setStockQuantity} keyboardType="numeric" />
             </View>
             
             <TextInput 
               style={[styles.input, { marginBottom: 8 }]} 
               placeholder="Category (Type or select below)" 
+              placeholderTextColor="#888"
               value={category} 
               onChangeText={setCategory} 
             />
             
-            {/* New Quick Select Category Chips */}
             <View style={styles.chipWrapper}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipContainer}>
                 {['Bread', 'Savory', 'Desserts', 'Beverages', 'Cookies'].map((cat) => (
@@ -277,7 +303,6 @@ export default function AdminScreen() {
                 ))}
               </ScrollView>
             </View>
-            
             
             <TouchableOpacity style={styles.imagePickerBtn} onPress={pickImage}>
               {imageUri ? (
@@ -298,12 +323,43 @@ export default function AdminScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal visible={deleteModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.alertOverlay}>
+          <View style={styles.confirmBox}>
+            
+            <View style={styles.confirmHeader}>
+              <View style={styles.iconCircle}><Text style={styles.iconText}>⚠️</Text></View>
+              <View>
+                <Text style={styles.confirmTitle}>Delete item</Text>
+                <Text style={styles.confirmSubtitle}>Are you sure you want to delete this?</Text>
+              </View>
+            </View>
+
+            <View style={styles.confirmBtnRow}>
+              <TouchableOpacity 
+                style={styles.confirmCancelBtn} 
+                onPress={() => setDeleteModalVisible(false)}
+              >
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmOkBtn} 
+                onPress={confirmDelete}
+              >
+                <Text style={styles.confirmOkText}>Yes, delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Backgrounds matching the mockup
   container: { flex: 1, backgroundColor: '#E8D8C8' }, 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { padding: 16, paddingBottom: 80 }, 
@@ -311,26 +367,22 @@ const styles = StyleSheet.create({
   thumbnail: { width: 60, height: 60, borderRadius: 8, marginRight: 12, backgroundColor: '#dccfc1' },
   cardInfo: { flex: 1 },
   
-  // Text Colors
   itemName: { fontSize: 16, fontWeight: 'bold', color: '#4A3022', marginBottom: 4 },
   itemDetails: { fontSize: 13, color: '#7A5C4A' },
   
-  // List Button Colors
   actionButtons: { flexDirection: 'row', gap: 8 },
   editBtn: { backgroundColor: '#4A3022', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
   deleteBtn: { backgroundColor: '#C8945A', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
   editBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
   deleteBtnText: { color: '#4A3022', fontWeight: 'bold', fontSize: 14 },
   
-  // FAB Styles - Exact same position, new colors
   fab: { position: 'absolute', bottom: 90, right: 20, backgroundColor: '#C8945A', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 },
   fabIcon: { fontSize: 36, color: '#4A3022', fontWeight: 'bold', marginTop: -4 },
 
-  // Modal & Form Styles integrated with the new palette
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
   formContainer: { backgroundColor: '#F5EFE6', padding: 20, borderRadius: 12, elevation: 5 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: '#4A3022', textAlign: 'center' },
-  input: { borderWidth: 1, borderColor: '#dccfc1', padding: 12, borderRadius: 8, marginBottom: 12, backgroundColor: '#fff', fontSize: 15 },
+  input: { borderWidth: 1, borderColor: '#dccfc1', padding: 12, borderRadius: 8, marginBottom: 12, backgroundColor: '#fff', fontSize: 15, color: '#4A3022' },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   halfInput: { width: '48%' },
   imagePickerBtn: { backgroundColor: '#E8D8C8', padding: 12, borderRadius: 8, marginBottom: 16, alignItems: 'center', justifyContent: 'center', minHeight: 50, borderWidth: 1, borderColor: '#dccfc1', borderStyle: 'dashed' },
@@ -341,7 +393,6 @@ const styles = StyleSheet.create({
   cancelBtn: { backgroundColor: '#C8945A', padding: 14, borderRadius: 8, flex: 1, alignItems: 'center', marginLeft: 6 },
   btnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
   
-  // Category Chips (Modal)
   chipWrapper: { marginBottom: 16, height: 35 },
   chipContainer: { alignItems: 'center' },
   chip: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#E8D8C8', borderRadius: 16, marginRight: 8, borderWidth: 1, borderColor: '#dccfc1', justifyContent: 'center' },
@@ -349,11 +400,38 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, color: '#7A5C4A' },
   chipTextActive: { color: '#fff', fontWeight: 'bold' },
   
-  // Top Filter Bar
   filterWrapper: { backgroundColor: '#E8D8C8', paddingVertical: 10, elevation: 0, marginBottom: 8 },
   categoryContainer: { paddingHorizontal: 16, alignItems: 'center' },
   categoryBtn: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, backgroundColor: '#AFA49B', marginRight: 10 },
   categoryBtnActive: { backgroundColor: '#C8945A' },
   categoryText: { fontSize: 14, fontWeight: 'bold', color: '#4A3022' },
   categoryTextActive: { color: '#4A3022' },
+
+  // --- Confirmation Modal Styles ---
+  alertOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  confirmBox: { width: '100%', maxWidth: 340, backgroundColor: '#F5EFE6', borderRadius: 16, padding: 20, elevation: 5 },
+  confirmHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#C8945A', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  iconText: { fontSize: 18, color: '#4A3022' },
+  confirmTitle: { fontSize: 18, fontWeight: 'bold', color: '#4A3022' },
+  confirmSubtitle: { fontSize: 14, color: '#7A5C4A', marginTop: 2 },
+  confirmBtnRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  confirmCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: '#dccfc1', alignItems: 'center' },
+  confirmCancelText: { color: '#7A5C4A', fontWeight: 'bold', fontSize: 15 },
+  confirmOkBtn: { flex: 1, backgroundColor: '#4A3022', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  confirmOkText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+
+  // --- Toast Alert Styles ---
+  toastContainer: { position: 'absolute', top: 20, left: 16, right: 16, padding: 16, borderRadius: 8, zIndex: 1000, flexDirection: 'row', alignItems: 'center', elevation: 6 },
+  toastTitle: { fontWeight: 'bold', fontSize: 15 },
+  toastMessage: { fontSize: 13, marginTop: 2 },
+  
+  alertSuccessBox: { backgroundColor: '#F5EFE6' },
+  alertSuccessTitle: { color: '#4A3022' },
+  alertSuccessText: { color: '#7A5C4A' },
+
+  alertErrorBox: { backgroundColor: '#4A3022' },
+  alertErrorTitle: { color: '#F5EFE6' },
+  alertErrorText: { color: '#dccfc1' },
+  alertErrorActionText: { color: '#C8945A', fontWeight: 'bold', fontSize: 14, marginLeft: 16 }
 });
