@@ -2,41 +2,105 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import apiClient from '../api/client';
 
-// Dedicated component for each grouped order
-const OrderCard = ({ item, onDelete }: { item: any, onDelete: any }) => {
+const OrderCard = ({ item, onUpdate, onDelete }: { item: any, onUpdate: any, onDelete: any }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  // Store a local copy of the items array so we can edit quantities independently
+  const [editItems, setEditItems] = useState(item.items.map((i: any) => ({ ...i })));
+
   const isCompleted = item.status === 'Completed';
 
+  const handleIncrease = (index: number) => {
+    const newItems = [...editItems];
+    newItems[index].quantity += 1;
+    setEditItems(newItems);
+  };
+
+  const handleDecrease = (index: number) => {
+    const newItems = [...editItems];
+    if (newItems[index].quantity > 1) {
+      newItems[index].quantity -= 1;
+      setEditItems(newItems);
+    }
+  };
+
+  // Dynamically calculate the total price when editing quantities
+  const currentTotal = isEditing 
+    ? editItems.reduce((sum: number, curr: any) => sum + ((curr.menuItemId?.price || 0) * curr.quantity), 0)
+    : item.totalPrice;
+    
   return (
     <View style={styles.card}>
       <Text style={styles.orderId}>Order ID: {item._id}</Text>
       <Text style={styles.date}>Date: {new Date(item.createdAt).toLocaleString()}</Text>
       
-      {/* Loop through the items array for this specific order */}
       <View style={styles.itemsContainer}>
-        {item.items && item.items.map((orderItem: any, index: number) => {
+        {(isEditing ? editItems : item.items).map((orderItem: any, index: number) => {
           const itemName = orderItem.menuItemId?.name || 'Unknown Item';
           return (
             <View key={index} style={styles.itemRow}>
               <Text style={styles.itemName}>• {itemName}</Text>
-              <Text style={styles.itemQty}>x{orderItem.quantity}</Text>
+              
+              {isEditing ? (
+                <View style={styles.qtyEditRow}>
+                  <TouchableOpacity onPress={() => handleDecrease(index)} style={styles.qtySmallBtn}>
+                    <Text style={styles.qtySmallText}>-</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.itemQtyEdit}>{orderItem.quantity}</Text>
+                  <TouchableOpacity onPress={() => handleIncrease(index)} style={styles.qtySmallBtn}>
+                    <Text style={styles.qtySmallText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text style={styles.itemQty}>x{orderItem.quantity}</Text>
+              )}
             </View>
           );
         })}
       </View>
 
-      <Text style={styles.totalPrice}>Total: Rs {item.totalPrice}</Text>
+      <Text style={styles.totalPrice}>Total: Rs {currentTotal}</Text>
 
       <Text style={[styles.statusBadge, isCompleted ? styles.statusCompleted : styles.statusPending]}>
         {item.status || 'Pending'}
       </Text>
 
       {!isCompleted ? (
-        <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item._id)}>
-          <Text style={styles.deleteBtnText}>Cancel Entire Order</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonRow}>
+          {isEditing ? (
+            <>
+              <TouchableOpacity 
+                style={styles.saveBtn} 
+                onPress={() => { 
+                  onUpdate(item._id, editItems); 
+                  setIsEditing(false); 
+                }}
+              >
+                <Text style={styles.btnText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.cancelEditBtn} 
+                onPress={() => { 
+                  setEditItems(item.items.map((i: any) => ({ ...i }))); 
+                  setIsEditing(false); 
+                }}
+              >
+                <Text style={styles.btnText}>Discard</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.updateBtn} onPress={() => setIsEditing(true)}>
+                <Text style={styles.editBtnText}>Edit Order</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item._id)}>
+                <Text style={styles.deleteBtnText}>Cancel Order</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       ) : (
         <Text style={styles.lockedText}>This order is completed and cannot be modified.</Text>
       )}
@@ -48,11 +112,12 @@ export default function HistoryScreen() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('All');
-
-  // Modal & Toast States
+  
   const [modalVisible, setModalVisible] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [toast, setToast] = useState<{title: string, message: string, type: 'success' | 'error'} | null>(null);
+  
+  const router = useRouter();
 
   useEffect(() => {
     fetchOrders();
@@ -66,9 +131,7 @@ export default function HistoryScreen() {
   const fetchOrders = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      if (!token) return;
-
-      const decodedToken: any = jwtDecode(token);
+      const decodedToken: any = jwtDecode(token!);
       const currentUserId = decodedToken.userId || decodedToken.id || decodedToken._id;
 
       const response = await apiClient.get(`/orders/user/${currentUserId}`, {
@@ -105,6 +168,21 @@ export default function HistoryScreen() {
     }
   };
 
+  const handleUpdate = async (orderId: string, updatedItems: any[]) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await apiClient.put(`/orders/${orderId}`, {
+        items: updatedItems 
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      showToast('Order updated', 'Your order quantities have been updated.', 'success');
+      fetchOrders(); 
+    } catch (error) {
+      showToast('Error', 'Could not update the order.', 'error');
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -115,8 +193,7 @@ export default function HistoryScreen() {
 
   const filteredOrders = orders.filter((order: any) => {
     if (statusFilter === 'All') return true;
-    const currentStatus = order.status || 'Pending';
-    return currentStatus === statusFilter;
+    return (order.status || 'Pending') === statusFilter;
   });
 
   return (
@@ -124,8 +201,14 @@ export default function HistoryScreen() {
       <Stack.Screen 
         options={{ 
           title: 'My orders',
+          headerShown: true,
           headerStyle: { backgroundColor: '#4A3022' },
-          headerTintColor: '#FFF'
+          headerTintColor: '#FFF',
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15, padding: 5 }}>
+              <Text style={{ color: '#FFF', fontSize: 22, fontWeight: 'bold' }}>←</Text>
+            </TouchableOpacity>
+          )
         }} 
       />
       
@@ -150,9 +233,7 @@ export default function HistoryScreen() {
             style={[styles.filterBtn, statusFilter === status && styles.filterBtnActive]}
             onPress={() => setStatusFilter(status)}
           >
-            <Text style={[styles.filterText, statusFilter === status && styles.filterTextActive]}>
-              {status}
-            </Text>
+            <Text style={[styles.filterText, statusFilter === status && styles.filterTextActive]}>{status}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -160,7 +241,7 @@ export default function HistoryScreen() {
       <FlatList
         data={filteredOrders}
         keyExtractor={(item: any) => item._id}
-        renderItem={({ item }) => <OrderCard item={item} onDelete={initiateDelete} />}
+        renderItem={({ item }) => <OrderCard item={item} onUpdate={handleUpdate} onDelete={initiateDelete} />}
         contentContainerStyle={styles.list}
         ListEmptyComponent={<Text style={styles.empty}>No {statusFilter.toLowerCase()} orders found.</Text>}
       />
@@ -208,22 +289,34 @@ const styles = StyleSheet.create({
   date: { fontSize: 13, color: '#7A5C4A', marginBottom: 12 },
   
   itemsContainer: { backgroundColor: '#E8D8C8', padding: 10, borderRadius: 6, marginBottom: 12 },
-  itemRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   itemName: { fontSize: 15, color: '#4A3022', flex: 1 },
   itemQty: { fontSize: 15, color: '#4A3022', fontWeight: 'bold' },
   
+  qtyEditRow: { flexDirection: 'row', alignItems: 'center' },
+  qtySmallBtn: { backgroundColor: '#dccfc1', width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginHorizontal: 8 },
+  qtySmallText: { fontSize: 16, fontWeight: 'bold', color: '#4A3022', marginTop: -2 },
+  itemQtyEdit: { fontSize: 15, fontWeight: 'bold', color: '#4A3022' },
+  
   totalPrice: { fontSize: 16, fontWeight: 'bold', color: '#4A3022', marginBottom: 10, textAlign: 'right' },
-  
-  deleteBtn: { backgroundColor: '#C8945A', paddingVertical: 10, borderRadius: 6, alignItems: 'center', marginTop: 10 },
-  deleteBtnText: { color: '#4A3022', fontWeight: 'bold', fontSize: 15 },
-  
-  empty: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#4A3022' },
-  lockedText: { color: '#deaf79', fontSize: 14, fontStyle: 'italic', marginTop: 8, textAlign: 'center' },
   
   statusBadge: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20, fontWeight: 'bold', overflow: 'hidden', fontSize: 14 },
   statusPending: { backgroundColor: '#C8945A', color: '#4A3022' },
   statusCompleted: { backgroundColor: '#4A3022', color: '#FFF' },
 
+  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  updateBtn: { backgroundColor: '#4A3022', paddingVertical: 10, borderRadius: 6, flex: 0.48, alignItems: 'center' },
+  deleteBtn: { backgroundColor: '#C8945A', paddingVertical: 10, borderRadius: 6, flex: 0.48, alignItems: 'center' },
+  saveBtn: { backgroundColor: '#4A3022', paddingVertical: 10, borderRadius: 6, flex: 0.48, alignItems: 'center' },
+  cancelEditBtn: { backgroundColor: '#C8945A', paddingVertical: 10, borderRadius: 6, flex: 0.48, alignItems: 'center' },
+  
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  editBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+  deleteBtnText: { color: '#4A3022', fontWeight: 'bold', fontSize: 14 },
+  
+  empty: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#4A3022' },
+  lockedText: { color: '#deaf79', fontSize: 14, fontStyle: 'italic', marginTop: 8, textAlign: 'center' },
+  
   alertOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   confirmBox: { width: '100%', maxWidth: 340, backgroundColor: '#F5EFE6', borderRadius: 16, padding: 20, elevation: 5 },
   confirmHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },

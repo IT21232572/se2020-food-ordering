@@ -4,6 +4,7 @@ const {
   createOrder, 
   getUserOrders, 
   getAllOrders, 
+  updateOrder,
   updateOrderStatus, 
   deleteOrder 
 } = require('../controllers/orderController');
@@ -23,5 +24,6 @@ router.put('/:id/status', auth, updateOrderStatus);
 
 // Delete an order entirely
 router.delete('/:id', auth, deleteOrder);
+router.put('/:id', auth, updateOrder);
 
 module.exports = router;

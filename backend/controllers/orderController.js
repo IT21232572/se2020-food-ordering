@@ -68,6 +68,35 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
+// Add this inside controllers/orderController.js
+exports.updateOrder = async (req, res) => {
+  try {
+    const { items } = req.body;
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    let newTotal = 0;
+
+    // Calculate new total based on edited quantities
+    for (const reqItem of items) {
+       const menuDoc = await MenuItem.findById(reqItem.menuItemId._id || reqItem.menuItemId);
+       newTotal += (menuDoc.price * reqItem.quantity);
+    }
+
+    // Update array and total price
+    order.items = items.map(i => ({
+       menuItemId: i.menuItemId._id || i.menuItemId,
+       quantity: i.quantity
+    }));
+    order.totalPrice = newTotal;
+
+    await order.save();
+    res.status(200).json(order);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating order', error: error.message });
+  }
+};
+
 // Update an order's status (Admin marking Completed, or User Cancelling)
 exports.updateOrderStatus = async (req, res) => {
   try {
